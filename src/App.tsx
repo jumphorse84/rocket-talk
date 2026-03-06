@@ -12,7 +12,9 @@ import {
 import CourierJournalModal from './components/CourierJournalModal';
 import CourierProofModal from './components/CourierProofModal';
 import AddCourierModal from './components/AddCourierModal';
+import AddStaffModal from './components/AddStaffModal';
 import ManageShopModal from './components/ManageShopModal';
+import AppIconSettingsModal from './components/AppIconSettingsModal';
 import RocketBackpackModal from './components/RocketBackpackModal';
 import GiftStudentModal from './components/GiftStudentModal';
 import LaunchAnimation from './components/LaunchAnimation';
@@ -191,6 +193,11 @@ export default function App() {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 
+  const [showStaffEditModal, setShowStaffEditModal] = useState(false);
+  const [staffToEdit, setStaffToEdit] = useState<Staff | null>(null);
+  const [showDeleteStaffConfirmModal, setShowDeleteStaffConfirmModal] = useState(false);
+  const [deleteStaffTargetId, setDeleteStaffTargetId] = useState<string | null>(null);
+
   const [studentName, setStudentName] = useState("");
   const [showProofModal, setShowProofModal] = useState(false);
   const [targetParcelId, setTargetParcelId] = useState<string | null>(null);
@@ -216,7 +223,10 @@ export default function App() {
   const [showStatsInfoModal, setShowStatsInfoModal] = useState(false);
   const [journalViewData, setJournalViewData] = useState<{ open: boolean, text: string, title: string }>({ open: false, text: "", title: "" });
   const [showBackpackModal, setShowBackpackModal] = useState(false);
+
   const [showStaffProfileModal, setShowStaffProfileModal] = useState(false); // [상태 추가] 선생님 프로필 모달
+  const [showIconSettingsModal, setShowIconSettingsModal] = useState(false);
+  const [appSettings, setAppSettings] = useState<{ iconUrl?: string }>({});
 
   // New States for Teacher Gifting
   const [giftTargetItem, setGiftTargetItem] = useState<any>(null);
@@ -275,16 +285,65 @@ export default function App() {
     const activeUsersQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'active_users'));
     const unsubActiveUsers = onSnapshot(activeUsersQuery, (snapshot) => {
       const activeData = snapshot.docs.reduce((acc, doc) => { acc[doc.id] = doc.data(); return acc; }, {} as Record<string, any>);
-      setStaffList(prev => prev.map(s => { const data = activeData[s.id]; return { ...s, isOnline: !!data, photoUrl: data?.photoUrl || s.photoUrl, description: data?.description || s.description, points: data?.points || 0 }; }));
+      setStaffList(prev => prev.map(s => { const data = activeData[s.id]; return { ...s, isOnline: !!data, photoUrl: data?.photoUrl || s.photoUrl, description: data?.description || s.description, points: data?.points || 0, name: data?.name || s.name, role: data?.role || s.role, location: data?.location || s.location }; }));
     });
+
+    // Custom staff logic: If active_users has staff that are not in initial staff list, add them here.
+    const customStaffQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'custom_staff'));
+    const unsubCustomStaff = onSnapshot(customStaffQuery, (snapshot) => {
+      const customStaff = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isOnline: false } as Staff));
+      // Merge initial staff with custom staff
+      setStaffList(prev => {
+        const baseStaff = initialStaff.filter(s => !customStaff.find(c => c.id === s.id));
+        return [...baseStaff, ...customStaff].map(s => {
+          const data = activeDataRef.current?.[s.id];
+          return { ...s, isOnline: !!data, photoUrl: data?.photoUrl || s.photoUrl, description: data?.description || s.description, points: data?.points || 0 };
+        });
+      });
+    });
+
     const postsQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'posts'));
     const unsubPosts = onSnapshot(postsQuery, (snapshot) => { const loadedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post)); loadedPosts.sort((a, b) => getSeconds(b.createdAt) - getSeconds(a.createdAt)); setPosts(loadedPosts); });
     const commentsQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'comments'));
     const unsubComments = onSnapshot(commentsQuery, (snapshot) => { const loadedComments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment)); loadedComments.sort((a, b) => getSeconds(a.createdAt) - getSeconds(b.createdAt)); setComments(loadedComments); });
     const shopDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'shop', 'list');
     const unsubShop = onSnapshot(shopDocRef, (snapshot) => { if (snapshot.exists() && snapshot.data().items) { setShopItems(snapshot.data().items); } else { setShopItems(DEFAULT_SHOP_ITEMS); } });
-    return () => { unsubMsg(); unsubParcel(); unsubCourier(); unsubActiveUsers(); unsubPosts(); unsubComments(); unsubShop(); };
+
+    // [앱 설정 구독]
+    const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'app_settings', 'config');
+    const unsubSettings = onSnapshot(settingsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        setAppSettings(snapshot.data());
+      }
+    });
+
+    return () => { unsubMsg(); unsubParcel(); unsubCourier(); unsubActiveUsers(); unsubCustomStaff(); unsubPosts(); unsubComments(); unsubShop(); unsubSettings(); };
   }, [user]);
+
+  const activeDataRef = useRef<Record<string, any>>({});
+  useEffect(() => {
+    if (!user) return;
+    const activeUsersQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'active_users'));
+    const unsub = onSnapshot(activeUsersQuery, (snapshot) => {
+      activeDataRef.current = snapshot.docs.reduce((acc, doc) => { acc[doc.id] = doc.data(); return acc; }, {} as Record<string, any>);
+      // Re-trigger staff list update by just referencing current staffList
+      setStaffList(prev => prev.map(s => { const data = activeDataRef.current[s.id]; return { ...s, isOnline: !!data, photoUrl: data?.photoUrl || s.photoUrl, description: data?.description || s.description, points: data?.points || 0 }; }));
+    });
+    return () => unsub();
+  }, [user]);
+
+  // [Favicon 업데이트]
+  useEffect(() => {
+    if (appSettings?.iconUrl) {
+      let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.getElementsByTagName('head')[0].appendChild(link);
+      }
+      link.href = appSettings.iconUrl;
+    }
+  }, [appSettings]);
 
   useEffect(() => { const t = setInterval(() => setCurrentTime(new Date()), 60000); return () => clearInterval(t); }, []);
   useEffect(() => {
@@ -516,6 +575,52 @@ export default function App() {
   const handleSendMessage = async (text: string) => { if (!text.trim() || !user) return; let finalTargetId = PUBLIC_CHAT_ID; let finalChannelId = activeChannelId || PUBLIC_CHAT_ID; if (activeChannelId !== PUBLIC_CHAT_ID) { finalTargetId = "private_group"; finalChannelId = activeChannelId!; } else { finalTargetId = PUBLIC_CHAT_ID; } try { await setDoc(doc(collection(db, 'artifacts', appId, 'public', 'data', 'messages')), { targetId: finalTargetId, channelId: finalChannelId, senderType: mode, senderName: name, text, createdAt: serverTimestamp() }); setInput(""); } catch (e) { alert("전송 실패"); } };
   const requestDeleteCourier = (id: string) => { setDeleteTargetId(id); setShowDeleteConfirmModal(true); };
   const performDeleteCourier = () => deleteTargetId && handleDeleteCourier(deleteTargetId);
+
+  // Custom Staff Logic
+  const handleAddStaff = async (name: string, role: string, location: string, photoUrl: string, description: string) => {
+    if (!user || mode !== 'ADMIN') return;
+    try {
+      const newId = `cstaff_${Date.now()}`;
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'custom_staff', newId), {
+        name, role, location, photoUrl, description
+      });
+      setShowStaffEditModal(false);
+      setNotification({ msg: "선생님 명단이 추가되었습니다.", type: "success" });
+    } catch (e) { console.error(e); alert("추가 실패"); }
+  };
+
+  const handleEditStaff = async (id: string, name: string, role: string, location: string, photoUrl: string, description: string) => {
+    if (!user || mode !== 'ADMIN') return;
+    try {
+      // Both initial staff and custom staff are edited in custom_staff
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'custom_staff', id), {
+        name, role, location, photoUrl, description
+      }, { merge: true });
+
+      // Also update active_users if they are logged in recently
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_users', id), {
+        name, role, location, photoUrl, description
+      }, { merge: true });
+
+      setShowStaffEditModal(false);
+      setStaffToEdit(null);
+      setNotification({ msg: "선생님 프로필 수정 완료", type: "success" });
+    } catch (e) { console.error(e); alert("수정 실패"); }
+  };
+
+  const handleDeleteStaff = async (id: string) => {
+    if (!user || mode !== 'ADMIN') return;
+    try {
+      // Add a tombstone in custom_staff so initialStaff doesn't show them if they were default
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'custom_staff', id), { deleted: true });
+      await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_users', id));
+      setShowDeleteStaffConfirmModal(false);
+      setNotification({ msg: "선생님이 삭제되었습니다.", type: "success" });
+    } catch (e) { alert("삭제 실패"); }
+  };
+  const requestDeleteStaff = (id: string) => { setDeleteStaffTargetId(id); setShowDeleteStaffConfirmModal(true); };
+  const performDeleteStaff = () => deleteStaffTargetId && handleDeleteStaff(deleteStaffTargetId);
+
   const handleAiThankYou = async (item: string, sender: string) => { setAiModalOpen(true); setGeneratedThankYou(""); setAiGenerating(true); try { const res = await callGemini(`학교 선생님이 택배를 받고 보내는 감사 메시지. 물품: ${item}, 발신: ${sender}. 정중하고 예의 바르게. 50자 이내.`); setGeneratedThankYou(res); } catch (e) { setGeneratedThankYou("감사합니다! 잘 받았습니다."); } setAiGenerating(false); };
   const toggleLocation = (location: string) => setOpenLocations(prev => ({ ...prev, [location]: !prev[location] }));
 
@@ -576,7 +681,21 @@ export default function App() {
   const handleStartGift = (item: any) => {
     setGiftTargetItem(item);
     setShowShopModal(false);
+    setShowShopModal(false);
     setShowGiftStudentModal(true);
+  };
+
+  const handleUpdateAppIcon = async (iconUrl: string) => {
+    if (!user) return;
+    try {
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'app_settings', 'config'), {
+        iconUrl
+      }, { merge: true });
+      setNotification({ msg: "앱 아이콘이 변경되었습니다!", type: 'success' });
+    } catch (e) {
+      console.error(e);
+      alert("저장 실패");
+    }
   };
 
   const handleConfirmGift = async (courier: Courier) => {
@@ -633,7 +752,7 @@ export default function App() {
   };
 
   // --- Render ---
-  if (showSplash) return <LaunchAnimation onFinish={() => setShowSplash(false)} />;
+  if (showSplash) return <LaunchAnimation onFinish={() => setShowSplash(false)} iconUrl={appSettings.iconUrl} />;
 
   if (!loggedIn) {
     const filteredLoginStaff = staffList.filter(s => s.name.includes(loginSearch) || s.role.includes(loginSearch));
@@ -641,7 +760,14 @@ export default function App() {
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-400 via-indigo-800 to-slate-900 p-4 relative overflow-hidden">
         <SpaceBackground />
         {showAdminLogin && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"> <div className="w-full max-w-xs bg-white rounded-2xl p-6 shadow-xl"> <h3 className="font-bold text-center mb-4">관리자 접속</h3> <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 rounded-xl border mb-4 text-sm" placeholder="비밀번호 입력" /> <div className="flex gap-2"><button onClick={() => setShowAdminLogin(false)} className="flex-1 py-2 bg-slate-100 rounded-xl text-xs">취소</button><button onClick={() => { if (password === '8369') { saveLogin("관리자", "행정실", "ADMIN"); setMode("ADMIN"); setLoggedIn(true); } else { alert("비밀번호 불일치"); } }} className="flex-1 py-2 bg-[#fee500] rounded-xl text-xs font-bold">접속</button></div> </div> </div>)}
-        <div className="w-full max-w-sm bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl relative z-10 border border-white/20"> <div className="mb-8 text-center"> <div className="text-6xl mb-2 filter drop-shadow-md">🚀</div> <h1 className="text-3xl font-black text-slate-800 tracking-tight">Rocket Talk</h1> <p className="text-sm font-medium text-slate-500 mt-1">우리 학교 배송 메신저</p> </div> <div className="grid grid-cols-2 gap-3 mb-6"> <button onClick={() => setMode("TEACHER")} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${mode === 'TEACHER' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-100 bg-white text-slate-400 hover:border-indigo-100'}`} > <span className="text-2xl">👩‍🏫</span> <span className="text-xs font-bold">선생님</span> </button> <button onClick={() => setMode("STUDENT")} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${mode === 'STUDENT' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-100'}`} > <span className="text-2xl">🏃</span> <span className="text-xs font-bold">배송기사</span> </button> </div> <div className="space-y-4 mb-8"> {mode === "TEACHER" ? (<div className="relative group"> <input type="text" value={loginSearch} onChange={(e) => { setLoginSearch(e.target.value); setShowLoginSuggestions(true); if (e.target.value === "") { setName(""); setRole(""); } }} onFocus={() => setShowLoginSuggestions(true)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 text-sm focus:border-indigo-500 outline-none shadow-sm transition-all" placeholder="선생님 성함을 입력하세요" /> <User className="absolute left-4 top-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} /> {showLoginSuggestions && (loginSearch || filteredLoginStaff.length > 0) && (<div className="absolute top-full left-0 right-0 mt-2 max-h-48 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-100 z-50"> {filteredLoginStaff.map(s => (<button key={s.id} className="w-full text-left px-4 py-3 text-sm hover:bg-indigo-50 border-b border-slate-50 last:border-none flex justify-between items-center transition-colors" onClick={() => { setName(s.name); setRole(s.role); setLoginSearch(s.name); setShowLoginSuggestions(false); }}> <span className="font-bold text-slate-700">{s.name}</span><span className="text-xs text-slate-400">{s.role}</span> </button>))} </div>)} </div>) : (<div className="relative group"> <select value={studentName} onChange={(e) => setStudentName(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 text-sm focus:border-emerald-500 outline-none bg-white appearance-none shadow-sm transition-all"> <option value="">기사님을 선택하세요</option> {couriers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)} </select> <User className="absolute left-4 top-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} /> <div className="absolute right-4 top-4 pointer-events-none text-slate-400"><ChevronDown size={20} /></div> </div>)} </div> <button onClick={async () => { if (mode === "TEACHER" && !name) return alert("이름을 선택해주세요."); if (mode === "STUDENT") { if (!studentName) return alert("기사님 이름을 선택해주세요."); const matchedCourier = couriers.find(c => c.name === studentName); if (!matchedCourier) return alert("등록된 기사님 정보가 일치하지 않습니다."); } const finalName = mode === "TEACHER" ? name : studentName; const finalRole = mode === "TEACHER" ? role : "배송기사"; saveLogin(finalName, finalRole, mode); if (mode === "TEACHER") { const staff = staffList.find(s => s.name === finalName); if (staff) try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_users', staff.id), { name: staff.name, lastActive: serverTimestamp() }, { merge: true }); } catch (e) { } } setName(finalName); setShowSplash(true); setTimeout(() => setLoggedIn(true), 100); }} className={`w-full text-white py-4 rounded-xl font-bold shadow-lg transform transition-all active:scale-95 active:shadow-sm border-b-4 ${mode === 'TEACHER' ? 'bg-indigo-500 border-indigo-700 hover:bg-indigo-600' : 'bg-emerald-500 border-emerald-700 hover:bg-emerald-600'}`} > 🚀 발사 준비 완료 (입장) </button> <div className="mt-6 text-center"> <button onClick={() => { setPassword(""); setShowAdminLogin(true); }} className="text-xs text-slate-400 hover:text-slate-600 flex items-center justify-center gap-1 mx-auto transition-colors"><Settings size={12} /> 관리자 모드</button> </div> </div> </div>
+        <div className="w-full max-w-sm bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl relative z-10 border border-white/20"> <div className="mb-8 text-center">
+          <div className="text-6xl mb-2 filter drop-shadow-md flex justify-center">
+            {appSettings.iconUrl ? (
+              <img src={appSettings.iconUrl} className="w-24 h-24 object-contain" alt="Logo" />
+            ) : (
+              "🚀"
+            )}
+          </div> <h1 className="text-3xl font-black text-slate-800 tracking-tight">Rocket Talk</h1> <p className="text-sm font-medium text-slate-500 mt-1">우리 학교 배송 메신저</p> </div> <div className="grid grid-cols-2 gap-3 mb-6"> <button onClick={() => setMode("TEACHER")} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${mode === 'TEACHER' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-100 bg-white text-slate-400 hover:border-indigo-100'}`} > <span className="text-2xl">👩‍🏫</span> <span className="text-xs font-bold">선생님</span> </button> <button onClick={() => setMode("STUDENT")} className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${mode === 'STUDENT' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-100'}`} > <span className="text-2xl">🏃</span> <span className="text-xs font-bold">배송기사</span> </button> </div> <div className="space-y-4 mb-8"> {mode === "TEACHER" ? (<div className="relative group"> <input type="text" value={loginSearch} onChange={(e) => { setLoginSearch(e.target.value); setShowLoginSuggestions(true); if (e.target.value === "") { setName(""); setRole(""); } }} onFocus={() => setShowLoginSuggestions(true)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 text-sm focus:border-indigo-500 outline-none shadow-sm transition-all" placeholder="선생님 성함을 입력하세요" /> <User className="absolute left-4 top-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} /> {showLoginSuggestions && (loginSearch || filteredLoginStaff.length > 0) && (<div className="absolute top-full left-0 right-0 mt-2 max-h-48 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-100 z-50"> {filteredLoginStaff.map(s => (<button key={s.id} className="w-full text-left px-4 py-3 text-sm hover:bg-indigo-50 border-b border-slate-50 last:border-none flex justify-between items-center transition-colors" onClick={() => { setName(s.name); setRole(s.role); setLoginSearch(s.name); setShowLoginSuggestions(false); }}> <span className="font-bold text-slate-700">{s.name}</span><span className="text-xs text-slate-400">{s.role}</span> </button>))} </div>)} </div>) : (<div className="relative group"> <select value={studentName} onChange={(e) => setStudentName(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 text-sm focus:border-emerald-500 outline-none bg-white appearance-none shadow-sm transition-all"> <option value="">기사님을 선택하세요</option> {couriers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)} </select> <User className="absolute left-4 top-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} /> <div className="absolute right-4 top-4 pointer-events-none text-slate-400"><ChevronDown size={20} /></div> </div>)} </div> <button onClick={async () => { if (mode === "TEACHER" && !name) return alert("이름을 선택해주세요."); if (mode === "STUDENT") { if (!studentName) return alert("기사님 이름을 선택해주세요."); const matchedCourier = couriers.find(c => c.name === studentName); if (!matchedCourier) return alert("등록된 기사님 정보가 일치하지 않습니다."); } const finalName = mode === "TEACHER" ? name : studentName; const finalRole = mode === "TEACHER" ? role : "배송기사"; saveLogin(finalName, finalRole, mode); if (mode === "TEACHER") { const staff = staffList.find(s => s.name === finalName); if (staff) try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_users', staff.id), { name: staff.name, lastActive: serverTimestamp() }, { merge: true }); } catch (e) { } } setName(finalName); setShowSplash(true); setTimeout(() => setLoggedIn(true), 100); }} className={`w-full text-white py-4 rounded-xl font-bold shadow-lg transform transition-all active:scale-95 active:shadow-sm border-b-4 ${mode === 'TEACHER' ? 'bg-indigo-500 border-indigo-700 hover:bg-indigo-600' : 'bg-emerald-500 border-emerald-700 hover:bg-emerald-600'}`} > 🚀 발사 준비 완료 (입장) </button> <div className="mt-6 text-center"> <button onClick={() => { setPassword(""); setShowAdminLogin(true); }} className="text-xs text-slate-400 hover:text-slate-600 flex items-center justify-center gap-1 mx-auto transition-colors"><Settings size={12} /> 관리자 모드</button> </div> </div> </div>
     );
   }
 
@@ -683,8 +809,11 @@ export default function App() {
         )}
 
         <ManageShopModal isOpen={showShopManageModal} onClose={() => setShowShopManageModal(false)} items={shopItems} onSave={handleUpdateShopItems} />
+        <AppIconSettingsModal isOpen={showIconSettingsModal} onClose={() => setShowIconSettingsModal(false)} currentIcon={appSettings.iconUrl} onSave={handleUpdateAppIcon} />
         <ConfirmModal isOpen={showDeleteConfirmModal} onClose={() => setShowDeleteConfirmModal(false)} onConfirm={performDeleteCourier} message="기사님을 삭제하시겠습니까?" />
+        <ConfirmModal isOpen={showDeleteStaffConfirmModal} onClose={() => setShowDeleteStaffConfirmModal(false)} onConfirm={performDeleteStaff} message="이 선생님 명단을 정말 삭제하시겠습니까?" />
         {showCourierModal && <AddCourierModal onClose={() => { setShowCourierModal(false); setCourierToEdit(null); }} onAdd={handleAddCourier} onEdit={handleEditCourier} initialData={courierToEdit} />}
+        {showStaffEditModal && <AddStaffModal onClose={() => { setShowStaffEditModal(false); setStaffToEdit(null); }} onAdd={handleAddStaff} onEdit={handleEditStaff} initialData={staffToEdit} />}
         {showRegisterModal && <RegisterParcelModal onClose={() => setShowRegisterModal(false)} onRegister={handleRegisterParcel} staffList={staffList} />}
         {showWritePostModal && <WritePostModal onClose={() => setShowWritePostModal(false)} onPost={handleCreatePost} couriers={couriers} authorName={name} />}
 
@@ -692,8 +821,13 @@ export default function App() {
           <aside className="flex w-72 flex-col border-r border-black/5 bg-white">
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100"><div><span className="text-xs text-slate-400">관리자 모드</span><div className="font-bold text-slate-800">관리자</div></div><button onClick={handleLogout} className="text-xs text-slate-500 bg-slate-100 px-2 py-1 rounded-md"><LogOut size={12} /></button></div>
             <div className="p-3 border-b border-slate-100 bg-white"><div className="relative"><Search className="absolute left-3 top-2.5 text-slate-400" size={14} /><input value={staffSearchQuery} onChange={e => setStaffSearchQuery(e.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 py-2 text-sm outline-none" placeholder="이름 검색" /></div></div>
-            <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 border-b border-slate-100"><button onClick={() => { setCourierToEdit(null); setShowCourierModal(true); }} className="flex items-center justify-center gap-1 text-xs font-bold text-white bg-indigo-600 py-2 rounded-xl shadow-md"><Truck size={14} /> 기사 관리</button><button onClick={() => setShowShopManageModal(true)} className="flex items-center justify-center gap-1 text-xs font-bold text-indigo-700 bg-white border border-indigo-200 py-2 rounded-xl shadow-sm hover:bg-indigo-50"><ShoppingBag size={14} /> 상점 관리</button></div>
-            <div className="flex-1 overflow-y-auto"><button onClick={() => { setSelectedTeacherId(PUBLIC_CHAT_ID); setAdminFilter(null); }} className={`w-full text-left px-4 py-3 flex items-center gap-3 border-b border-slate-50 ${selectedTeacherId === PUBLIC_CHAT_ID ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-slate-50'}`}><div className="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-100 text-indigo-600 font-bold"><Users size={16} /></div><div className="font-bold text-slate-700 text-sm">📢 전체 대화방</div></button>{STAFF_LOCATIONS.map(loc => { const sectionStaff = filteredAndGroupedStaff[loc] || []; if (sectionStaff.length === 0) return null; return (<div key={loc} className="border-b border-slate-50"><button onClick={() => toggleLocation(loc)} className="w-full text-left bg-slate-50/50 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">{loc} ({sectionStaff.length})</button>{(openLocations[loc] ?? true) && (<div>{sectionStaff.map(t => (<button key={t.id} onClick={() => { setSelectedTeacherId(t.id); setAdminFilter(null); }} className={`w-full text-left px-4 py-3 flex items-center gap-3 ${selectedTeacherId === t.id ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-slate-50'}`}><div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${t.isOnline ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'} overflow-hidden`}>{t.photoUrl ? <img src={t.photoUrl} className="w-full h-full object-cover" /> : t.name[0]}</div><div className="flex-1 min-w-0"><div className="text-sm font-medium truncate flex items-center gap-1">{t.name}{t.description && <span className="text-[9px] text-slate-400 bg-slate-100 px-1 rounded-sm max-w-[80px] truncate">{String(t.description)}</span>}</div><div className="text-xs text-slate-500 truncate">{t.role}</div></div>{hasUnreadFromTeacher(t.id) && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>}</button>))}</div>)}</div>); })}</div>
+            <div className="grid grid-cols-2 gap-2 p-2 bg-slate-50 border-b border-slate-100">
+              <button onClick={() => { setStaffToEdit(null); setShowStaffEditModal(true); }} className="flex items-center justify-center gap-1 text-xs font-bold text-slate-700 bg-white border border-slate-200 py-2 rounded-xl shadow-sm hover:bg-slate-50"><User size={14} /> 교사 관리</button>
+              <button onClick={() => { setCourierToEdit(null); setShowCourierModal(true); }} className="flex items-center justify-center gap-1 text-xs font-bold text-white bg-indigo-600 py-2 rounded-xl shadow-md"><Truck size={14} /> 기사 관리</button>
+              <button onClick={() => setShowShopManageModal(true)} className="flex items-center justify-center gap-1 text-xs font-bold text-indigo-700 bg-white border border-indigo-200 py-2 rounded-xl shadow-sm hover:bg-indigo-50"><ShoppingBag size={14} /> 상점 관리</button>
+              <button onClick={() => setShowIconSettingsModal(true)} className="flex items-center justify-center gap-1 text-xs font-bold text-slate-600 bg-white border border-slate-200 py-2 rounded-xl shadow-sm hover:bg-slate-50"><ImageIcon size={14} /> 앱 아이콘 설정</button>
+            </div>
+            <div className="flex-1 overflow-y-auto"><button onClick={() => { setSelectedTeacherId(PUBLIC_CHAT_ID); setAdminFilter(null); }} className={`w-full text-left px-4 py-3 flex items-center gap-3 border-b border-slate-50 ${selectedTeacherId === PUBLIC_CHAT_ID ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-slate-50'}`}><div className="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-100 text-indigo-600 font-bold"><Users size={16} /></div><div className="font-bold text-slate-700 text-sm">📢 전체 대화방</div></button>{STAFF_LOCATIONS.map(loc => { const sectionStaff = filteredAndGroupedStaff[loc] || []; const visibleStaff = sectionStaff.filter(s => !(s as any).deleted); if (visibleStaff.length === 0) return null; return (<div key={loc} className="border-b border-slate-50"><button onClick={() => toggleLocation(loc)} className="w-full text-left bg-slate-50/50 px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-100">{loc} ({visibleStaff.length})</button>{(openLocations[loc] ?? true) && (<div>{visibleStaff.map(t => (<button key={t.id} onClick={(e) => { setSelectedTeacherId(t.id); setAdminFilter(null); }} className={`relative group w-full text-left px-4 py-3 flex items-center gap-3 ${selectedTeacherId === t.id ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'hover:bg-slate-50'}`}><div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity"><span onClick={(e) => { e.stopPropagation(); setStaffToEdit(t); setShowStaffEditModal(true); }} className="bg-white p-1.5 rounded-full text-slate-500 hover:text-blue-600 shadow-sm"><Pencil size={12} /></span><span onClick={(e) => { e.stopPropagation(); requestDeleteStaff(t.id); }} className="bg-white p-1.5 rounded-full text-slate-500 hover:text-red-600 shadow-sm"><Trash2 size={12} /></span></div><div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${t.isOnline ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-500'} overflow-hidden`}>{t.photoUrl ? <img src={t.photoUrl} className="w-full h-full object-cover" /> : t.name[0]}</div><div className="flex-1 min-w-0"><div className="text-sm font-medium truncate flex items-center gap-1">{t.name}{t.description && <span className="text-[9px] text-slate-400 bg-slate-100 px-1 rounded-sm max-w-[80px] truncate">{String(t.description)}</span>}</div><div className="text-xs text-slate-500 truncate">{t.role}</div></div>{hasUnreadFromTeacher(t.id) && <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>}</button>))}</div>)}</div>); })}</div>
           </aside>
           <main className="flex-1 flex flex-col bg-[#f2f4f6]">
             {selectedTeacherId ? (

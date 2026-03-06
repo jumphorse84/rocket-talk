@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-export default function LaunchAnimation({ onFinish }) {
+export default function LaunchAnimation({ onFinish, iconUrl }) {
     useEffect(() => {
         const timer = setTimeout(onFinish, 2500);
         return () => clearTimeout(timer);
@@ -26,7 +26,13 @@ export default function LaunchAnimation({ onFinish }) {
                 <div key={i} className="star-bg" style={{ left: `${Math.random() * 100}%`, top: `-${Math.random() * 20}%`, animationDuration: `${0.5 + Math.random()}s`, animationDelay: `${Math.random()}s` }} />
             ))}
             <div className="rocket-launching flex flex-col items-center z-10">
-                <span className="text-9xl filter drop-shadow-[0_0_20px_rgba(255,165,0,0.8)]">🚀</span>
+                <div className="text-9xl filter drop-shadow-[0_0_20px_rgba(255,165,0,0.8)] w-32 h-32 flex items-center justify-center">
+                    {iconUrl ? (
+                        <img src={iconUrl} alt="Rocket" className="w-full h-full object-contain" />
+                    ) : (
+                        <span className="text-9xl">🚀</span>
+                    )}
+                </div>
                 <div className="mt-8 text-white text-2xl font-bold tracking-widest animate-pulse">LAUNCHING...</div>
             </div>
         </div>
