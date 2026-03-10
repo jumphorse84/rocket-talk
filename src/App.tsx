@@ -835,17 +835,68 @@ export default function App() {
   if (!loggedIn) {
     const filteredLoginStaff = staffList.filter(s => (s.name || '').includes(loginSearch) || (s.role || '').includes(loginSearch));
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-400 via-indigo-800 to-slate-900 p-4 relative overflow-hidden">
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-900 via-indigo-900 to-slate-900 p-4 relative overflow-hidden">
         <SpaceBackground />
-        {showAdminLogin && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"> <div className="w-full max-w-xs bg-white rounded-2xl p-6 shadow-xl"> <h3 className="font-bold text-center mb-4">관리자 접속</h3> <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 rounded-xl border mb-4 text-sm" placeholder="비밀번호 입력" /> <div className="flex gap-2"><button onClick={() => setShowAdminLogin(false)} className="flex-1 py-2 bg-slate-100 rounded-xl text-xs">취소</button><button onClick={() => { if (password === '8369') { saveLogin("관리자", "행정실", "ADMIN"); setMode("ADMIN"); setLoggedIn(true); } else { alert("비밀번호 불일치"); } }} className="flex-1 py-2 bg-[#fee500] rounded-xl text-xs font-bold">접속</button></div> </div> </div>)}
-        <div className="w-full max-w-sm bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl relative z-10 border border-white/20"> <div className="mb-8 text-center">
-          <div className="text-6xl mb-2 filter drop-shadow-md flex justify-center">
-            {appSettings.iconUrl ? (
-              <img src={appSettings.iconUrl} className="w-24 h-24 object-contain" alt="Logo" />
+        {showAdminLogin && (<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"> <div className="w-full max-w-xs bg-white/90 backdrop-blur-md rounded-2xl p-6 shadow-xl border border-white/20"> <h3 className="font-bold text-center mb-4">관리자 접속</h3> <input type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full p-3 rounded-xl border border-slate-200 mb-4 text-sm bg-white/50 focus:bg-white transition-colors" placeholder="비밀번호 입력" /> <div className="flex gap-2"><button onClick={() => setShowAdminLogin(false)} className="flex-1 py-2 bg-slate-100/50 hover:bg-slate-200 rounded-xl text-xs transition-colors">취소</button><button onClick={() => { if (password === '8369') { saveLogin("관리자", "행정실", "ADMIN"); setMode("ADMIN"); setLoggedIn(true); } else { alert("비밀번호 불일치"); } }} className="flex-1 py-2 bg-[#fee500] hover:bg-yellow-400 rounded-xl text-xs font-bold transition-colors shadow-lg">접속</button></div> </div> </div>)}
+        <div className={`w-full max-w-sm bg-white/10 backdrop-blur-xl rounded-[2rem] p-8 shadow-[0_8px_32px_0_rgba(31,38,135,0.37)] relative z-10 border border-white/20 transition-all duration-700 ${showSplash ? 'animate-launch' : ''}`}>
+          <div className="mb-8 text-center">
+            <div className="text-6xl mb-2 filter drop-shadow-lg flex justify-center animate-float">
+              {appSettings.iconUrl ? (
+                <img src={appSettings.iconUrl} className="w-24 h-24 object-contain" alt="Logo" />
+              ) : (
+                "🚀"
+              )}
+            </div>
+            <h1 className="text-4xl font-black bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-amber-400 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)] tracking-tight mb-2">Rocket Talk</h1>
+            <p className="text-sm font-medium text-indigo-200/80">우리 학교 배송 메신저</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <button onClick={() => setMode("TEACHER")} className={`group pt-2 pb-4 px-2 rounded-2xl border-2 flex flex-col items-center gap-0 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/20 ${mode === 'TEACHER' ? 'border-indigo-400 bg-indigo-500/20 text-white shadow-[0_0_15px_rgba(99,102,241,0.5)]' : 'border-white/10 bg-white/5 text-slate-300 hover:border-indigo-400/50 hover:bg-white/10'}`} >
+              <div className="relative">
+                <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-xl group-hover:bg-indigo-400/40 transition-colors duration-300"></div>
+                <img src="https://i.postimg.cc/Wbmj8jrx/Gemini-Generated-Image-ey15iuey15iuey15-removebg-preview.png" alt="Teacher" className="w-32 h-32 object-contain drop-shadow-xl -mb-4 relative z-10 group-hover:scale-110 transition-transform duration-300" />
+              </div>
+              <span className="text-sm font-bold relative z-10 tracking-wide">선생님</span>
+            </button>
+            <button onClick={() => setMode("STUDENT")} className={`group pt-2 pb-4 px-2 rounded-2xl border-2 flex flex-col items-center gap-0 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/20 ${mode === 'STUDENT' ? 'border-emerald-400 bg-emerald-500/20 text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]' : 'border-white/10 bg-white/5 text-slate-300 hover:border-emerald-400/50 hover:bg-white/10'}`} >
+              <div className="relative">
+                <div className="absolute inset-0 bg-emerald-500/20 rounded-full blur-xl group-hover:bg-emerald-400/40 transition-colors duration-300"></div>
+                <img src="https://i.postimg.cc/FHZrrmHj/Gemini-Generated-Image-22nn8m22nn8m22nn-removebg-preview.png" alt="Courier" className="w-32 h-32 object-contain drop-shadow-xl -mb-4 relative z-10 group-hover:scale-110 transition-transform duration-300" />
+              </div>
+              <span className="text-sm font-bold relative z-10 tracking-wide">배송기사</span>
+            </button>
+          </div>
+
+          <div className="space-y-4 mb-8">
+            {mode === "TEACHER" ? (
+              <div className="relative group">
+                <input type="text" value={loginSearch} onChange={(e) => { setLoginSearch(e.target.value); setShowLoginSuggestions(true); if (e.target.value === "") { setName(""); setRole(""); } }} onFocus={() => setShowLoginSuggestions(true)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-white/20 bg-white/10 text-white placeholder-slate-300 text-sm focus:border-indigo-400 focus:bg-white/20 outline-none shadow-inner backdrop-blur-md transition-all" placeholder="선생님 성함을 입력하세요" />
+                <User className="absolute left-4 top-4 text-slate-300 group-focus-within:text-indigo-300 transition-colors" size={20} />
+                {showLoginSuggestions && (loginSearch || filteredLoginStaff.length > 0) && (<div className="absolute top-full left-0 right-0 mt-2 max-h-48 overflow-y-auto bg-slate-900/90 backdrop-blur-xl rounded-xl shadow-2xl border border-white/10 z-50 scrollbar-hide"> {filteredLoginStaff.map(s => (<button key={s.id} className="w-full text-left px-4 py-3 text-sm hover:bg-white/10 border-b border-white/5 last:border-none flex justify-between items-center transition-colors text-slate-200" onClick={() => { setName(s.name); setRole(s.role); setLoginSearch(s.name); setShowLoginSuggestions(false); }}> <span className="font-bold text-white">{s.name}</span><span className="text-xs text-slate-400">{s.role}</span> </button>))} </div>)}
+              </div>
             ) : (
-              "🚀"
+              <div className="relative group">
+                <select value={studentName} onChange={(e) => setStudentName(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-white/20 bg-white/10 text-white placeholder-slate-300 text-sm focus:border-emerald-400 focus:bg-white/20 outline-none appearance-none shadow-inner backdrop-blur-md transition-all">
+                  <option value="" className="bg-slate-800">기사님을 선택하세요</option>
+                  {couriers.map(c => <option key={c.id} value={c.name} className="bg-slate-800">{c.name}</option>)}
+                </select>
+                <User className="absolute left-4 top-4 text-slate-300 group-focus-within:text-emerald-300 transition-colors" size={20} />
+                <div className="absolute right-4 top-4 pointer-events-none text-slate-300"><ChevronDown size={20} /></div>
+              </div>
             )}
-          </div> <h1 className="text-3xl font-black text-slate-800 tracking-tight">Rocket Talk</h1> <p className="text-sm font-medium text-slate-500 mt-1">우리 학교 배송 메신저</p> </div> <div className="grid grid-cols-2 gap-3 mb-6"> <button onClick={() => setMode("TEACHER")} className={`pt-1 pb-3 px-2 rounded-2xl border-2 flex flex-col items-center gap-0 overflow-hidden transition-all ${mode === 'TEACHER' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-100 bg-white text-slate-400 hover:border-indigo-100'}`} > <img src="https://i.postimg.cc/Wbmj8jrx/Gemini-Generated-Image-ey15iuey15iuey15-removebg-preview.png" alt="Teacher" className="w-36 h-36 object-contain drop-shadow-sm -mb-6" /> <span className="text-sm font-bold relative z-10">선생님</span> </button> <button onClick={() => setMode("STUDENT")} className={`pt-1 pb-3 px-2 rounded-2xl border-2 flex flex-col items-center gap-0 overflow-hidden transition-all ${mode === 'STUDENT' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-100'}`} > <img src="https://i.postimg.cc/FHZrrmHj/Gemini-Generated-Image-22nn8m22nn8m22nn-removebg-preview.png" alt="Courier" className="w-36 h-36 object-contain drop-shadow-sm -mb-6" /> <span className="text-sm font-bold relative z-10">배송기사</span> </button> </div> <div className="space-y-4 mb-8"> {mode === "TEACHER" ? (<div className="relative group"> <input type="text" value={loginSearch} onChange={(e) => { setLoginSearch(e.target.value); setShowLoginSuggestions(true); if (e.target.value === "") { setName(""); setRole(""); } }} onFocus={() => setShowLoginSuggestions(true)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 text-sm focus:border-indigo-500 outline-none shadow-sm transition-all" placeholder="선생님 성함을 입력하세요" /> <User className="absolute left-4 top-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} /> {showLoginSuggestions && (loginSearch || filteredLoginStaff.length > 0) && (<div className="absolute top-full left-0 right-0 mt-2 max-h-48 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-100 z-50"> {filteredLoginStaff.map(s => (<button key={s.id} className="w-full text-left px-4 py-3 text-sm hover:bg-indigo-50 border-b border-slate-50 last:border-none flex justify-between items-center transition-colors" onClick={() => { setName(s.name); setRole(s.role); setLoginSearch(s.name); setShowLoginSuggestions(false); }}> <span className="font-bold text-slate-700">{s.name}</span><span className="text-xs text-slate-400">{s.role}</span> </button>))} </div>)} </div>) : (<div className="relative group"> <select value={studentName} onChange={(e) => setStudentName(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 text-sm focus:border-emerald-500 outline-none bg-white appearance-none shadow-sm transition-all"> <option value="">기사님을 선택하세요</option> {couriers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)} </select> <User className="absolute left-4 top-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} /> <div className="absolute right-4 top-4 pointer-events-none text-slate-400"><ChevronDown size={20} /></div> </div>)} </div> <button onClick={async () => { if (mode === "TEACHER" && !name) return alert("이름을 선택해주세요."); if (mode === "STUDENT") { if (!studentName) return alert("기사님 이름을 선택해주세요."); const matchedCourier = couriers.find(c => c.name === studentName); if (!matchedCourier) return alert("등록된 기사님 정보가 일치하지 않습니다."); } const finalName = mode === "TEACHER" ? name : studentName; const finalRole = mode === "TEACHER" ? role : "배송기사"; saveLogin(finalName, finalRole, mode); if (mode === "TEACHER") { const staff = staffList.find(s => s.name === finalName); if (staff) try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_users', staff.id), { name: staff.name, lastActive: serverTimestamp() }, { merge: true }); } catch (e) { } } setName(finalName); setShowSplash(true); requestNotificationPermission(); setTimeout(() => setLoggedIn(true), 100); }} className={`w-full text-white py-4 rounded-xl font-bold shadow-lg transform transition-all active:scale-95 active:shadow-sm border-b-4 ${mode === 'TEACHER' ? 'bg-indigo-500 border-indigo-700 hover:bg-indigo-600' : 'bg-emerald-500 border-emerald-700 hover:bg-emerald-600'}`} > 🚀 발사 준비 완료 (입장) </button> <div className="mt-6 text-center"> <button onClick={() => { setPassword(""); setShowAdminLogin(true); }} className="text-xs text-slate-400 hover:text-slate-600 flex items-center justify-center gap-1 mx-auto transition-colors"><Settings size={12} /> 관리자 모드</button> </div> </div> </div>
+          </div>
+
+          <button onClick={async () => { if (mode === "TEACHER" && !name) return alert("이름을 선택해주세요."); if (mode === "STUDENT") { if (!studentName) return alert("기사님 이름을 선택해주세요."); const matchedCourier = couriers.find(c => c.name === studentName); if (!matchedCourier) return alert("등록된 기사님 정보가 일치하지 않습니다."); } const finalName = mode === "TEACHER" ? name : studentName; const finalRole = mode === "TEACHER" ? role : "배송기사"; saveLogin(finalName, finalRole, mode); if (mode === "TEACHER") { const staff = staffList.find(s => s.name === finalName); if (staff) try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_users', staff.id), { name: staff.name, lastActive: serverTimestamp() }, { merge: true }); } catch (e) { } } setName(finalName); setShowSplash(true); requestNotificationPermission(); setTimeout(() => setLoggedIn(true), 600); }} className={`relative overflow-hidden w-full text-white py-4 rounded-xl font-bold shadow-2xl transform transition-all active:scale-95 border-b-4 ${mode === 'TEACHER' ? 'bg-indigo-600 border-indigo-800 hover:bg-indigo-500 shadow-indigo-500/50' : 'bg-emerald-600 border-emerald-800 hover:bg-emerald-500 shadow-emerald-500/50'}`} >
+            <span className="relative z-10 flex items-center justify-center gap-2">🚀 발사 준비 완료 (입장)</span>
+            <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+          </button>
+
+          <div className="mt-8 text-center">
+            <button onClick={() => { setPassword(""); setShowAdminLogin(true); }} className="text-xs text-slate-400 hover:text-white flex items-center justify-center gap-1 mx-auto transition-colors px-3 py-1.5 rounded-full hover:bg-white/10"><Settings size={12} /> 관리자 모드</button>
+          </div>
+        </div>
+      </div>
     );
   }
 
