@@ -54,9 +54,43 @@ export function loadSavedLogin() {
 }
 
 export function saveLogin(name, role, mode) {
-    try { window.localStorage.setItem(LOGIN_STORAGE_KEY, JSON.stringify({ name, role, mode })); } catch { }
+    try { window.localStorage.setItem(LOGIN_STORAGE_KEY, JSON.stringify({ name, role, mode })); } catch { /* ignore */ }
 }
 
 export function clearLogin() {
-    try { window.localStorage.removeItem(LOGIN_STORAGE_KEY); } catch { }
+    try { window.localStorage.removeItem(LOGIN_STORAGE_KEY); } catch { /* ignore */ }
 }
+
+export const requestNotificationPermission = async () => {
+    if (!("Notification" in window)) {
+        console.log("This browser does not support desktop notification");
+        return false;
+    }
+    if (Notification.permission === "granted") {
+        return true;
+    }
+    if (Notification.permission !== "denied") {
+        const permission = await Notification.requestPermission();
+        return permission === "granted";
+    }
+    return false;
+};
+
+export const sendPushNotification = (title, options = {}) => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "granted") {
+        try {
+            const notification = new Notification(title, {
+                icon: '/icon-192x192.png',
+                badge: '/icon-192x192.png',
+                ...options
+            });
+            notification.onclick = function () {
+                window.focus();
+                this.close();
+            };
+        } catch (e) {
+            console.error("Notification trigger failed", e);
+        }
+    }
+};

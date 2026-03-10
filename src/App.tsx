@@ -37,7 +37,7 @@ import AiThankYouModal from './components/AiThankYouModal';
 import CompletedHistoryModal from './components/CompletedHistoryModal';
 import DeliveryReceiptModal from './components/DeliveryReceiptModal';
 import { LOGIN_STORAGE_KEY, TIME_SLOTS, LEVEL_THRESHOLDS, DEFAULT_SHOP_ITEMS, initialStaff, STAFF_LOCATIONS } from './data';
-import { compressImage, callGemini, getSeconds, loadSavedLogin, saveLogin, clearLogin } from './utils';
+import { compressImage, callGemini, getSeconds, loadSavedLogin, saveLogin, clearLogin, requestNotificationPermission, sendPushNotification } from './utils';
 
 // ---- Firebase Imports ----
 import { initializeApp, getApps, getApp } from "firebase/app";
@@ -278,10 +278,60 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
+
+    let isInitialMessageLoad = true;
     const msgQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'messages'));
-    const unsubMsg = onSnapshot(msgQuery, (snapshot) => { const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)); msgs.sort((a, b) => getSeconds(a.createdAt) - getSeconds(b.createdAt)); setMessages(msgs); });
+    const unsubMsg = onSnapshot(msgQuery, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
+      msgs.sort((a, b) => getSeconds(a.createdAt) - getSeconds(b.createdAt));
+      setMessages(msgs);
+
+      if (!isInitialMessageLoad) {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === "added") {
+            const msg = change.doc.data() as Message;
+            // 푸시 알림: 나에게 온 새로운 메시지나 선물인 경우
+            if (msg.targetId === currentUser?.id || msg.targetId === PUBLIC_CHAT_ID) {
+              if (msg.senderName !== name) { // 내가 보낸 메시지는 제외
+                const title = msg.kind === 'GIFT' ? '🎁 새 선물이 도착했습니다!' : `💬 ${msg.senderName}님의 메시지`;
+                sendPushNotification(title, { body: msg.text });
+              }
+            }
+          }
+        });
+      }
+      isInitialMessageLoad = false;
+    });
+
+    let isInitialParcelLoad = true;
     const parcelQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'parcels'));
-    const unsubParcel = onSnapshot(parcelQuery, (snapshot) => { const parcels = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Parcel)); parcels.sort((a, b) => getSeconds(b.createdAt) - getSeconds(a.createdAt)); setAllParcels(parcels); });
+    const unsubParcel = onSnapshot(parcelQuery, (snapshot) => {
+      const parcels = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Parcel));
+      parcels.sort((a, b) => getSeconds(b.createdAt) - getSeconds(a.createdAt));
+      setAllParcels(parcels);
+
+      if (!isInitialParcelLoad) {
+        snapshot.docChanges().forEach((change) => {
+          const parcelData = change.doc.data() as Parcel;
+
+          if (change.type === "added" && parcelData.status === 'PENDING') {
+            // 학생(기사) 모드일 때 새 택배가 등록되면 알림 (임시로 모두에게 알림)
+            if (mode === 'STUDENT') {
+              sendPushNotification(`📦 새 택배 호출: ${parcelData.receiver} 선생님`, { body: `위치: ${parcelData.location}\n물품: ${parcelData.itemName}` });
+            }
+          }
+
+          if (change.type === "modified") {
+            // 내 택배가 배송 완료되었을 때 선생님에게 알림
+            if (mode === 'TEACHER' && parcelData.receiverId === currentUser?.id && parcelData.status === 'COMPLETED') {
+              sendPushNotification(`✅ 택배 배송 완료!`, { body: `${parcelData.courierName} 기사님이 ${parcelData.itemName} 배송을 완료했습니다.` });
+            }
+          }
+        });
+      }
+      isInitialParcelLoad = false;
+    });
+
     const courierQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'couriers'));
     const unsubCourier = onSnapshot(courierQuery, (snapshot) => { const loadedCouriers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Courier)); setCouriers(loadedCouriers); });
 
@@ -771,7 +821,7 @@ export default function App() {
             ) : (
               "🚀"
             )}
-          </div> <h1 className="text-3xl font-black text-slate-800 tracking-tight">Rocket Talk</h1> <p className="text-sm font-medium text-slate-500 mt-1">우리 학교 배송 메신저</p> </div> <div className="grid grid-cols-2 gap-3 mb-6"> <button onClick={() => setMode("TEACHER")} className={`pt-1 pb-3 px-2 rounded-2xl border-2 flex flex-col items-center gap-0 overflow-hidden transition-all ${mode === 'TEACHER' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-100 bg-white text-slate-400 hover:border-indigo-100'}`} > <img src="https://i.postimg.cc/Wbmj8jrx/Gemini-Generated-Image-ey15iuey15iuey15-removebg-preview.png" alt="Teacher" className="w-36 h-36 object-contain drop-shadow-sm -mb-6" /> <span className="text-sm font-bold relative z-10">선생님</span> </button> <button onClick={() => setMode("STUDENT")} className={`pt-1 pb-3 px-2 rounded-2xl border-2 flex flex-col items-center gap-0 overflow-hidden transition-all ${mode === 'STUDENT' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-100'}`} > <img src="https://i.postimg.cc/FHZrrmHj/Gemini-Generated-Image-22nn8m22nn8m22nn-removebg-preview.png" alt="Courier" className="w-36 h-36 object-contain drop-shadow-sm -mb-6" /> <span className="text-sm font-bold relative z-10">배송기사</span> </button> </div> <div className="space-y-4 mb-8"> {mode === "TEACHER" ? (<div className="relative group"> <input type="text" value={loginSearch} onChange={(e) => { setLoginSearch(e.target.value); setShowLoginSuggestions(true); if (e.target.value === "") { setName(""); setRole(""); } }} onFocus={() => setShowLoginSuggestions(true)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 text-sm focus:border-indigo-500 outline-none shadow-sm transition-all" placeholder="선생님 성함을 입력하세요" /> <User className="absolute left-4 top-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} /> {showLoginSuggestions && (loginSearch || filteredLoginStaff.length > 0) && (<div className="absolute top-full left-0 right-0 mt-2 max-h-48 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-100 z-50"> {filteredLoginStaff.map(s => (<button key={s.id} className="w-full text-left px-4 py-3 text-sm hover:bg-indigo-50 border-b border-slate-50 last:border-none flex justify-between items-center transition-colors" onClick={() => { setName(s.name); setRole(s.role); setLoginSearch(s.name); setShowLoginSuggestions(false); }}> <span className="font-bold text-slate-700">{s.name}</span><span className="text-xs text-slate-400">{s.role}</span> </button>))} </div>)} </div>) : (<div className="relative group"> <select value={studentName} onChange={(e) => setStudentName(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 text-sm focus:border-emerald-500 outline-none bg-white appearance-none shadow-sm transition-all"> <option value="">기사님을 선택하세요</option> {couriers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)} </select> <User className="absolute left-4 top-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} /> <div className="absolute right-4 top-4 pointer-events-none text-slate-400"><ChevronDown size={20} /></div> </div>)} </div> <button onClick={async () => { if (mode === "TEACHER" && !name) return alert("이름을 선택해주세요."); if (mode === "STUDENT") { if (!studentName) return alert("기사님 이름을 선택해주세요."); const matchedCourier = couriers.find(c => c.name === studentName); if (!matchedCourier) return alert("등록된 기사님 정보가 일치하지 않습니다."); } const finalName = mode === "TEACHER" ? name : studentName; const finalRole = mode === "TEACHER" ? role : "배송기사"; saveLogin(finalName, finalRole, mode); if (mode === "TEACHER") { const staff = staffList.find(s => s.name === finalName); if (staff) try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_users', staff.id), { name: staff.name, lastActive: serverTimestamp() }, { merge: true }); } catch (e) { } } setName(finalName); setShowSplash(true); setTimeout(() => setLoggedIn(true), 100); }} className={`w-full text-white py-4 rounded-xl font-bold shadow-lg transform transition-all active:scale-95 active:shadow-sm border-b-4 ${mode === 'TEACHER' ? 'bg-indigo-500 border-indigo-700 hover:bg-indigo-600' : 'bg-emerald-500 border-emerald-700 hover:bg-emerald-600'}`} > 🚀 발사 준비 완료 (입장) </button> <div className="mt-6 text-center"> <button onClick={() => { setPassword(""); setShowAdminLogin(true); }} className="text-xs text-slate-400 hover:text-slate-600 flex items-center justify-center gap-1 mx-auto transition-colors"><Settings size={12} /> 관리자 모드</button> </div> </div> </div>
+          </div> <h1 className="text-3xl font-black text-slate-800 tracking-tight">Rocket Talk</h1> <p className="text-sm font-medium text-slate-500 mt-1">우리 학교 배송 메신저</p> </div> <div className="grid grid-cols-2 gap-3 mb-6"> <button onClick={() => setMode("TEACHER")} className={`pt-1 pb-3 px-2 rounded-2xl border-2 flex flex-col items-center gap-0 overflow-hidden transition-all ${mode === 'TEACHER' ? 'border-indigo-500 bg-indigo-50 text-indigo-700' : 'border-slate-100 bg-white text-slate-400 hover:border-indigo-100'}`} > <img src="https://i.postimg.cc/Wbmj8jrx/Gemini-Generated-Image-ey15iuey15iuey15-removebg-preview.png" alt="Teacher" className="w-36 h-36 object-contain drop-shadow-sm -mb-6" /> <span className="text-sm font-bold relative z-10">선생님</span> </button> <button onClick={() => setMode("STUDENT")} className={`pt-1 pb-3 px-2 rounded-2xl border-2 flex flex-col items-center gap-0 overflow-hidden transition-all ${mode === 'STUDENT' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-100 bg-white text-slate-400 hover:border-emerald-100'}`} > <img src="https://i.postimg.cc/FHZrrmHj/Gemini-Generated-Image-22nn8m22nn8m22nn-removebg-preview.png" alt="Courier" className="w-36 h-36 object-contain drop-shadow-sm -mb-6" /> <span className="text-sm font-bold relative z-10">배송기사</span> </button> </div> <div className="space-y-4 mb-8"> {mode === "TEACHER" ? (<div className="relative group"> <input type="text" value={loginSearch} onChange={(e) => { setLoginSearch(e.target.value); setShowLoginSuggestions(true); if (e.target.value === "") { setName(""); setRole(""); } }} onFocus={() => setShowLoginSuggestions(true)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 text-sm focus:border-indigo-500 outline-none shadow-sm transition-all" placeholder="선생님 성함을 입력하세요" /> <User className="absolute left-4 top-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={20} /> {showLoginSuggestions && (loginSearch || filteredLoginStaff.length > 0) && (<div className="absolute top-full left-0 right-0 mt-2 max-h-48 overflow-y-auto bg-white rounded-xl shadow-xl border border-slate-100 z-50"> {filteredLoginStaff.map(s => (<button key={s.id} className="w-full text-left px-4 py-3 text-sm hover:bg-indigo-50 border-b border-slate-50 last:border-none flex justify-between items-center transition-colors" onClick={() => { setName(s.name); setRole(s.role); setLoginSearch(s.name); setShowLoginSuggestions(false); }}> <span className="font-bold text-slate-700">{s.name}</span><span className="text-xs text-slate-400">{s.role}</span> </button>))} </div>)} </div>) : (<div className="relative group"> <select value={studentName} onChange={(e) => setStudentName(e.target.value)} className="w-full pl-12 pr-4 py-4 rounded-xl border border-slate-200 text-sm focus:border-emerald-500 outline-none bg-white appearance-none shadow-sm transition-all"> <option value="">기사님을 선택하세요</option> {couriers.map(c => <option key={c.id} value={c.name}>{c.name}</option>)} </select> <User className="absolute left-4 top-4 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={20} /> <div className="absolute right-4 top-4 pointer-events-none text-slate-400"><ChevronDown size={20} /></div> </div>)} </div> <button onClick={async () => { if (mode === "TEACHER" && !name) return alert("이름을 선택해주세요."); if (mode === "STUDENT") { if (!studentName) return alert("기사님 이름을 선택해주세요."); const matchedCourier = couriers.find(c => c.name === studentName); if (!matchedCourier) return alert("등록된 기사님 정보가 일치하지 않습니다."); } const finalName = mode === "TEACHER" ? name : studentName; const finalRole = mode === "TEACHER" ? role : "배송기사"; saveLogin(finalName, finalRole, mode); if (mode === "TEACHER") { const staff = staffList.find(s => s.name === finalName); if (staff) try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_users', staff.id), { name: staff.name, lastActive: serverTimestamp() }, { merge: true }); } catch (e) { } } setName(finalName); setShowSplash(true); requestNotificationPermission(); setTimeout(() => setLoggedIn(true), 100); }} className={`w-full text-white py-4 rounded-xl font-bold shadow-lg transform transition-all active:scale-95 active:shadow-sm border-b-4 ${mode === 'TEACHER' ? 'bg-indigo-500 border-indigo-700 hover:bg-indigo-600' : 'bg-emerald-500 border-emerald-700 hover:bg-emerald-600'}`} > 🚀 발사 준비 완료 (입장) </button> <div className="mt-6 text-center"> <button onClick={() => { setPassword(""); setShowAdminLogin(true); }} className="text-xs text-slate-400 hover:text-slate-600 flex items-center justify-center gap-1 mx-auto transition-colors"><Settings size={12} /> 관리자 모드</button> </div> </div> </div>
     );
   }
 
