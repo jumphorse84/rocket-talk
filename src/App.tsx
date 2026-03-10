@@ -810,6 +810,19 @@ export default function App() {
     }
   };
 
+  const handleTrackingClick = (status: 'WAITING' | 'DELIVERING') => {
+    const filtered = myParcels.filter(p => p.status === status);
+    if (filtered.length === 0) return;
+
+    if (status === 'WAITING') {
+      const msg = filtered.map(p => `📦 [${p.itemName}]\n보낸사람: ${p.sender}`).join('\n\n');
+      alert(`[접수 완료 - 배정 대기중]\n\n${msg}`);
+    } else {
+      const msg = filtered.map(p => `📦 [${p.itemName}]\n담당 기사님: ${p.courierName} 학생`).join('\n\n');
+      alert(`[배송 진행 중]\n\n${msg}`);
+    }
+  };
+
   // --- Render ---
   // Memoize onFinish to prevent LaunchAnimation from resetting its timer on every render
   const handleSplashFinish = useCallback(() => {
@@ -1051,7 +1064,7 @@ export default function App() {
                 <>
                   <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-200">
                     <div className="flex justify-between items-center mb-6"><h2 className="font-bold text-lg">내 택배 현황</h2><div className="bg-white/20 p-2 rounded-full"><Package size={20} className="text-white" /></div></div>
-                    <div className="flex justify-between text-center text-xs"><div onClick={() => document.getElementById('my-parcel-list')?.scrollIntoView({ behavior: 'smooth' })} className="flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity"><p className="text-xl font-bold underline decoration-white/30 underline-offset-4">{myParcels.filter(p => p.status === 'PENDING').length}</p><span className="opacity-70">도착</span></div><div className="w-[1px] bg-white/20"></div><div className="flex flex-col items-center"><p className="text-xl font-bold">{myParcels.filter(p => p.status === 'WAITING').length}</p><span className="opacity-70">접수</span></div><div className="w-[1px] bg-white/20"></div><div className="flex flex-col items-center"><p className="text-xl font-bold">{myParcels.filter(p => p.status === 'DELIVERING').length}</p><span className="opacity-70">배송중</span></div><div className="w-[1px] bg-white/20"></div><div onClick={() => setShowCompletedHistoryModal(true)} className="flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity"><p className="text-xl font-bold underline decoration-white/30 underline-offset-4">{myParcels.filter(p => p.status === 'COMPLETED').length}</p><span className="opacity-70">완료 (보기)</span></div></div>
+                    <div className="flex justify-between text-center text-xs"><div onClick={() => document.getElementById('my-parcel-list')?.scrollIntoView({ behavior: 'smooth' })} className="flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity"><p className="text-xl font-bold underline decoration-white/30 underline-offset-4">{myParcels.filter(p => p.status === 'PENDING').length}</p><span className="opacity-70">도착</span></div><div className="w-[1px] bg-white/20"></div><div onClick={() => handleTrackingClick('WAITING')} className="flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity"><p className="text-xl font-bold underline decoration-white/30 underline-offset-4">{myParcels.filter(p => p.status === 'WAITING').length}</p><span className="opacity-70">접수</span></div><div className="w-[1px] bg-white/20"></div><div onClick={() => handleTrackingClick('DELIVERING')} className="flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity"><p className="text-xl font-bold underline decoration-white/30 underline-offset-4">{myParcels.filter(p => p.status === 'DELIVERING').length}</p><span className="opacity-70">배송중</span></div><div className="w-[1px] bg-white/20"></div><div onClick={() => setShowCompletedHistoryModal(true)} className="flex flex-col items-center cursor-pointer hover:opacity-80 transition-opacity"><p className="text-xl font-bold underline decoration-white/30 underline-offset-4">{myParcels.filter(p => p.status === 'COMPLETED').length}</p><span className="opacity-70">완료 (보기)</span></div></div>
                   </div>
 
                   {/* [NEW] Teacher Shop Banner */}
