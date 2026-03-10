@@ -36,6 +36,8 @@ import JournalViewModal from './components/JournalViewModal';
 import AiThankYouModal from './components/AiThankYouModal';
 import CompletedHistoryModal from './components/CompletedHistoryModal';
 import DeliveryReceiptModal from './components/DeliveryReceiptModal';
+import LeaderboardModal from './components/LeaderboardModal';
+import confetti from 'canvas-confetti';
 import { LOGIN_STORAGE_KEY, TIME_SLOTS, LEVEL_THRESHOLDS, DEFAULT_SHOP_ITEMS, initialStaff, STAFF_LOCATIONS } from './data';
 import { compressImage, callGemini, getSeconds, loadSavedLogin, saveLogin, clearLogin, requestNotificationPermission, sendPushNotification } from './utils';
 
@@ -75,21 +77,6 @@ const PUBLIC_CHAT_ID = "public_chat";
 type LoginMode = "ADMIN" | "TEACHER" | "STUDENT";
 type ParcelStatus = "PENDING" | "WAITING" | "DELIVERING" | "COMPLETED";
 
-type Message = {
-  id?: string;
-  targetId: string;
-  channelId?: string;
-  senderType: "SYSTEM" | "TEACHER" | "STUDENT" | "ADMIN";
-  senderName?: string;
-  text: string;
-  createdAt: any;
-  kind?: "FEEDBACK" | "STATUS" | "NOTICE" | "ASSIGNMENT" | "COMPLETION_REVIEW" | "JOURNAL" | "JOURNAL_INVITE" | "GIFT";
-  parcelId?: string;
-  courierName?: string;
-  courierPhoto?: string;
-  rating?: number;
-  itemName?: string;
-};
 
 type Parcel = {
   id?: string;
@@ -110,8 +97,7 @@ type Parcel = {
   feedback?: string;
   isUrgent?: boolean;
 };
-
-type Staff = {
+export type Staff = {
   id: string;
   name: string;
   role: string;
@@ -119,29 +105,44 @@ type Staff = {
   isOnline: boolean;
   photoUrl?: string;
   description?: string;
-  points?: number; // Teacher points
+  points?: number;
 };
 
-type InventoryItem = {
+export type Message = {
+  id?: string;
+  targetId: string;
+  channelId?: string;
+  senderType: "SYSTEM" | "TEACHER" | "STUDENT" | "ADMIN";
+  senderName?: string;
+  text: string;
+  createdAt: any;
+  kind?: "FEEDBACK" | "STATUS" | "NOTICE" | "ASSIGNMENT" | "COMPLETION_REVIEW" | "JOURNAL" | "JOURNAL_INVITE" | "GIFT" | "CHAT";
+  parcelId?: string;
+  itemName?: string;
+  imageUrl?: string;
+  senderId?: string;
+};
+export type InventoryItem = {
   id: string;
-  itemId: number;
+  itemId: string;
   name: string;
   icon: string;
   price: number;
   purchasedAt: any;
   isUsed: boolean;
-  giftedBy?: string; // If gifted by teacher
+  giftedBy?: string; // Teacher who gifted it
 };
 
-type Courier = {
+export type Courier = {
   id: string;
   name: string;
-  photoUrl: string;
-  availableSlots: string[];
-  description?: string;
-  createdAt?: any;
+  isOnline: boolean;
   points?: number;
-  inventory?: InventoryItem[]; // New Inventory Field
+  photoUrl?: string;
+  description?: string;
+  inventory?: InventoryItem[];
+  availableSlots: string[];
+  createdAt?: any;
 };
 
 type Post = {
@@ -229,6 +230,7 @@ export default function App() {
   const [showStaffProfileModal, setShowStaffProfileModal] = useState(false); // [상태 추가] 선생님 프로필 모달
   const [showIconSettingsModal, setShowIconSettingsModal] = useState(false);
   const [appSettings, setAppSettings] = useState<{ iconUrl?: string }>({});
+  const [showLeaderboard, setShowLeaderboard] = useState(false); // Gamification Leaderboard
 
   // New States for Teacher Gifting
   const [giftTargetItem, setGiftTargetItem] = useState<any>(null);
@@ -569,6 +571,14 @@ export default function App() {
         await setDoc(doc(collection(db, 'artifacts', appId, 'public', 'data', 'messages')), { targetId: targetParcel.receiverId, channelId: targetParcel.id, senderType: "SYSTEM", text: "배송이 완료되었습니다!", kind: "COMPLETION_REVIEW", parcelId: targetParcel.id, courierName: name, createdAt: serverTimestamp() });
         // Set Journal Target explicitly to the current parcel before clearing targetParcelId
         setJournalTargetParcel(targetParcel);
+
+        // [GAMIFICATION] Confetti Effect
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
+        });
 
         // [MODIFIED] Open Receipt Modal FIRST
         console.log("Setting receipt data and opening modal...");
@@ -996,6 +1006,13 @@ export default function App() {
         />
       )}
 
+      {/* Leaderboard Modal */}
+      <LeaderboardModal
+        isOpen={showLeaderboard}
+        onClose={() => setShowLeaderboard(false)}
+        couriers={couriers}
+      />
+
       <RocketBackpackModal isOpen={showBackpackModal} onClose={() => setShowBackpackModal(false)} items={myProfile?.inventory || []} onUseItem={handleUseItem} />
       <StatsInfoModal isOpen={showStatsInfoModal} onClose={() => setShowStatsInfoModal(false)} />
       <CompletedHistoryModal
@@ -1057,13 +1074,26 @@ export default function App() {
                   </div>
 
                   <div><h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Truck size={16} className="text-indigo-600" /> 활동 중인 기사님</h3><div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">{couriers.map(courier => { const cStats = calculateCourierStats(courier.name); return (<div key={courier.id} className="min-w-[140px] bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center"><div className="relative mb-2"><img src={courier.photoUrl} className="w-12 h-12 rounded-full bg-slate-100 object-cover" alt={courier.name} /><div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white"></div><div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs ${cStats.level.color} border-2 border-white`}>{cStats.level.emoji}</div></div><p className="text-xs font-bold text-slate-800 flex items-center gap-1">{courier.name}</p><p className="text-[10px] text-slate-500 mt-1 text-center line-clamp-1 w-full px-1">"{String(courier.description || "안전 배송!")}"</p><div className="flex flex-wrap justify-center gap-1 mt-2 w-full">{courier.availableSlots.map(s => <span key={s} className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s}</span>)}</div></div>); })}</div></div>
-                  <div><h3 className="font-bold text-slate-800 mb-3">내 물품 목록</h3><div className="space-y-3">{myParcels.length === 0 ? <p className="text-xs text-center text-slate-400 py-4">도착한 택배가 없습니다.</p> : myParcels.map(parcel => (<div key={parcel.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100"><div className="flex justify-between items-start mb-2"><ParcelStatusBadge status={parcel.status} /><span className="text-[10px] text-slate-400">{parcel.arrivedAt}</span></div><h4 className="font-bold text-slate-900 mb-1">{parcel.itemName}</h4><p className="text-xs text-slate-500 mb-3">보낸사람: {parcel.sender} • 위치: {parcel.location}</p>{parcel.status === 'PENDING' && (<button onClick={() => handleRequestDelivery(parcel.id)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-3 rounded-xl transition-colors shadow-sm mb-2">🚀 바로 배송 신청하기</button>)}{parcel.status === 'WAITING' && <p className="text-xs text-center text-purple-600 bg-purple-50 py-2 rounded-lg font-bold">기사님 배정을 기다리고 있습니다...</p>}{parcel.status === 'DELIVERING' && <p className="text-xs text-center text-blue-600 bg-blue-50 py-2 rounded-lg font-bold">{parcel.courierName} 학생이 배송 중입니다! 🏃</p>}{parcel.status === 'COMPLETED' && (<div className="text-center p-2 bg-slate-50 rounded-lg text-[10px] text-slate-400">배송 완료되었습니다</div>)}</div>))}</div></div>
+                  <div><h3 className="font-bold text-slate-800 mb-3">내 물품 목록</h3><div className="space-y-3">{myParcels.length === 0 ? <p className="text-xs text-center text-slate-400 py-4">도착한 택배가 없습니다.</p> : myParcels.map(parcel => (<div key={parcel.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100"><div className="flex justify-between items-start mb-2"><ParcelStatusBadge status={parcel.status} /><span className="text-[10px] text-slate-400">{parcel.arrivedAt}</span></div><h4 className="font-bold text-slate-900 mb-1">{parcel.itemName}</h4><p className="text-xs text-slate-500 mb-3">보낸사람: {parcel.sender} • 위치: {parcel.location}</p>{parcel.status === 'PENDING' && (<button onClick={() => handleRequestDelivery(parcel.id)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-3 rounded-xl transition-colors shadow-sm mb-2 animate-pulse-fast">🚀 바로 배송 신청하기</button>)}{parcel.status === 'WAITING' && <p className="text-xs text-center text-purple-600 bg-purple-50 py-2 rounded-lg font-bold">기사님 배정을 기다리고 있습니다...</p>}{parcel.status === 'DELIVERING' && <p className="text-xs text-center text-blue-600 bg-blue-50 py-2 rounded-lg font-bold">{parcel.courierName} 학생이 배송 중입니다! 🏃</p>}{parcel.status === 'COMPLETED' && (<div className="text-center p-2 bg-slate-50 rounded-lg text-[10px] text-slate-400">배송 완료되었습니다</div>)}</div>))}</div></div>
                 </>
               )}
               {/* Student Mode View */}
               {mode === 'STUDENT' && (
                 <>
-                  <section className="mb-6"><button onClick={() => setShowShopModal(true)} className="w-full bg-gradient-to-r from-rose-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex items-center justify-between"><div className="flex items-center gap-3"><div className="bg-white/20 p-2 rounded-full"><ShoppingBag size={20} className="text-white" /></div><div className="text-left"><p className="text-xs font-medium opacity-90">내 포인트</p><p className="text-xl font-bold flex items-center gap-1"><Coins size={16} className="fill-yellow-300 text-yellow-300" /> {myProfile?.points || 0} P</p></div></div><div className="flex items-center gap-1 text-xs font-bold bg-white/20 px-3 py-1.5 rounded-full">상점 가기 <ChevronRight size={14} /></div></button></section>
+                  <section className="mb-6">
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <button onClick={() => setShowShopModal(true)} className="bg-gradient-to-r from-rose-500 to-orange-500 text-white rounded-2xl p-4 shadow-lg flex flex-col items-center justify-center gap-1">
+                        <ShoppingBag size={24} className="mb-1 opacity-90" />
+                        <span className="text-xs font-medium">포인트 상점</span>
+                        <span className="text-sm font-bold bg-white/20 px-2 py-0.5 rounded-full mt-1"><Coins size={12} className="inline mr-1" />{myProfile?.points || 0} P</span>
+                      </button>
+                      <button onClick={() => setShowLeaderboard(true)} className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-2xl p-4 shadow-lg flex flex-col items-center justify-center gap-1">
+                        <Trophy size={24} className="mb-1 opacity-90 text-yellow-300" />
+                        <span className="text-xs font-medium">배달왕 랭킹</span>
+                        <span className="text-sm font-bold bg-white/20 px-2 py-0.5 rounded-full mt-1 text-yellow-100">명예의 전당</span>
+                      </button>
+                    </div>
+                  </section>
                   <section><h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Bell className="text-indigo-600" size={18} /> 배송 요청 ({availableDeliveries.length})</h3>{availableDeliveries.length === 0 ? <div className="text-center py-6 text-slate-400 text-xs bg-white rounded-2xl border border-slate-100">현재 대기 중인 배송이 없습니다.</div> : availableDeliveries.map(p => (<div key={p.id} className={`bg-white p-4 rounded-2xl shadow-sm border mb-3 ${p.isUrgent ? 'border-red-200 ring-2 ring-red-100' : 'border-slate-100'}`}><div className="flex justify-between mb-2"><span className={`text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 ${p.isUrgent ? 'bg-red-100 text-red-600' : 'text-indigo-600 bg-indigo-50'}`}>{p.isUrgent && <Siren size={12} className="animate-pulse" />} {p.receiver} 선생님</span><span className="text-xs text-slate-400">{p.location}</span></div><p className="text-sm font-bold text-slate-800 mb-4">{p.itemName}</p><button onClick={() => handleAcceptDelivery(p.id)} className={`w-full text-white font-bold py-3 rounded-xl transition-all shadow-md active:scale-95 ${p.isUrgent ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>{p.isUrgent ? "🚨 긴급! 제가 갈게요! 🏃" : "제가 갈게요! 🙋‍♂️"}</button></div>))}</section>
                   <section><h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Truck className="text-emerald-600" size={18} /> 나의 배송 ({myDeliveries.length})</h3>{myDeliveries.length === 0 ? <div className="text-center py-4 text-slate-400 text-xs">배송 중인 물품이 없습니다.</div> : myDeliveries.map(p => (<div key={p.id} className="bg-emerald-50 p-4 rounded-2xl shadow-sm border border-emerald-100 mb-3"><div className="flex justify-between mb-2"><span className="text-xs font-bold text-emerald-700">{p.receiver} 선생님께 이동 중</span><ParcelStatusBadge status={p.status} /></div><p className="text-sm font-bold text-slate-800 mb-2">{p.itemName}</p><p className="text-xs text-slate-500 mb-4 flex items-center gap-1"><MapPin size={12} /> {p.location}</p><button onClick={() => handleStartCompletion(p)} className="w-full bg-white border border-emerald-200 text-emerald-700 font-bold py-3 rounded-xl hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"><ClipboardCheck size={16} /> 배송 확인 및 완료 처리</button></div>))}</section>
                 </>
