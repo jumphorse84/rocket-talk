@@ -192,6 +192,8 @@ export default function App() {
 
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [showDeleteParcelConfirm, setShowDeleteParcelConfirm] = useState(false);
+  const [deleteParcelId, setDeleteParcelId] = useState<string | null>(null);
 
   const [showStaffEditModal, setShowStaffEditModal] = useState(false);
   const [staffToEdit, setStaffToEdit] = useState<Staff | null>(null);
@@ -787,16 +789,28 @@ export default function App() {
           filterType={adminFilter}
           parcels={allParcels}
           staffList={staffList}
-          onDelete={async (parcelId: string) => {
-            if (window.confirm("정말 이 택배 데이터를 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.")) {
+          onDelete={(parcelId: string) => {
+            setDeleteParcelId(parcelId);
+            setShowDeleteParcelConfirm(true);
+          }}
+        />
+        <ConfirmModal
+          isOpen={showDeleteParcelConfirm}
+          onClose={() => setShowDeleteParcelConfirm(false)}
+          message="정말 이 택배 데이터를 삭제하시겠습니까?"
+          subMessage="삭제된 데이터는 복구할 수 없습니다."
+          onConfirm={async () => {
+            if (deleteParcelId) {
               try {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'parcels', parcelId));
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'parcels', deleteParcelId));
                 setNotification({ msg: "택배 데이터가 영구 삭제되었습니다.", type: 'success' });
               } catch (e) {
                 console.error("Delete failed", e);
                 alert("삭제 중 오류가 발생했습니다.");
               }
             }
+            setShowDeleteParcelConfirm(false);
+            setDeleteParcelId(null);
           }}
         />  <CourierProfileModal isOpen={!!selectedCourierProfile} onClose={() => setSelectedCourierProfile(null)} courier={selectedCourierProfile} stats={selectedCourierProfile ? calculateCourierStats(selectedCourierProfile.name) : null} onGivePoints={handleAdminGivePoints} />
 
