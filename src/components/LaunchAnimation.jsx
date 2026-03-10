@@ -4,7 +4,14 @@ export default function LaunchAnimation({ onFinish, iconUrl }) {
     useEffect(() => {
         const timer = setTimeout(onFinish, 2500);
         return () => clearTimeout(timer);
-    }, [onFinish]);
+    }, []);
+
+    const [stars] = React.useState(() => [...Array(20)].map(() => ({
+        left: `${Math.random() * 100}%`,
+        top: `-${Math.random() * 20}%`,
+        animationDuration: `${0.5 + Math.random()}s`,
+        animationDelay: `${Math.random()}s`
+    })));
 
     return (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900 overflow-hidden">
@@ -22,8 +29,8 @@ export default function LaunchAnimation({ onFinish, iconUrl }) {
         .rocket-launching { animation: rocket-fly 2s ease-in forwards; }
         .star-bg { position: absolute; width: 2px; height: 2px; background: white; border-radius: 50%; opacity: 0.8; animation: stars-move 1s linear infinite; }
       `}</style>
-            {[...Array(20)].map((_, i) => (
-                <div key={i} className="star-bg" style={{ left: `${Math.random() * 100}%`, top: `-${Math.random() * 20}%`, animationDuration: `${0.5 + Math.random()}s`, animationDelay: `${Math.random()}s` }} />
+            {stars.map((style, i) => (
+                <div key={i} className="star-bg" style={style} />
             ))}
             <div className="rocket-launching flex flex-col items-center z-10">
                 <div className="text-9xl filter drop-shadow-[0_0_20px_rgba(255,165,0,0.8)] w-32 h-32 flex items-center justify-center">

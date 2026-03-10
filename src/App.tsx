@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Home, MessageCircle, User, Bell, Package, Truck, Send, CheckCircle,
   LogOut, MapPin, Clock, Sparkles, X, Plus, Camera, ClipboardList,
@@ -282,22 +282,19 @@ export default function App() {
     const unsubParcel = onSnapshot(parcelQuery, (snapshot) => { const parcels = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Parcel)); parcels.sort((a, b) => getSeconds(b.createdAt) - getSeconds(a.createdAt)); setAllParcels(parcels); });
     const courierQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'couriers'));
     const unsubCourier = onSnapshot(courierQuery, (snapshot) => { const loadedCouriers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Courier)); setCouriers(loadedCouriers); });
-    const activeUsersQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'active_users'));
-    const unsubActiveUsers = onSnapshot(activeUsersQuery, (snapshot) => {
-      const activeData = snapshot.docs.reduce((acc, doc) => { acc[doc.id] = doc.data(); return acc; }, {} as Record<string, any>);
-      setStaffList(prev => prev.map(s => { const data = activeData[s.id]; return { ...s, isOnline: !!data, photoUrl: data?.photoUrl || s.photoUrl, description: data?.description || s.description, points: data?.points || 0, name: data?.name || s.name, role: data?.role || s.role, location: data?.location || s.location }; }));
-    });
+
 
     // Custom staff logic: If active_users has staff that are not in initial staff list, add them here.
     const customStaffQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'custom_staff'));
     const unsubCustomStaff = onSnapshot(customStaffQuery, (snapshot) => {
-      const customStaff = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isOnline: false } as Staff));
+      const allCustomStaff = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data(), isOnline: false }));
       // Merge initial staff with custom staff
       setStaffList(prev => {
-        const baseStaff = initialStaff.filter(s => !customStaff.find(c => c.id === s.id));
-        return [...baseStaff, ...customStaff].map(s => {
+        const baseStaff = initialStaff.filter(s => !allCustomStaff.find(c => c.id === s.id));
+        const activeCustomStaff = allCustomStaff.filter(c => !c.deleted);
+        return [...baseStaff, ...activeCustomStaff].map(s => {
           const data = activeDataRef.current?.[s.id];
-          return { ...s, isOnline: !!data, photoUrl: data?.photoUrl || s.photoUrl, description: data?.description || s.description, points: data?.points || 0 };
+          return { ...s, isOnline: !!data, photoUrl: data?.photoUrl || (s as any).photoUrl, description: data?.description || (s as any).description, points: data?.points || 0, name: data?.name || s.name, role: data?.role || s.role, location: data?.location || s.location } as Staff;
         });
       });
     });
@@ -317,7 +314,7 @@ export default function App() {
       }
     });
 
-    return () => { unsubMsg(); unsubParcel(); unsubCourier(); unsubActiveUsers(); unsubCustomStaff(); unsubPosts(); unsubComments(); unsubShop(); unsubSettings(); };
+    return () => { unsubMsg(); unsubParcel(); unsubCourier(); unsubCustomStaff(); unsubPosts(); unsubComments(); unsubShop(); unsubSettings(); };
   }, [user]);
 
   const activeDataRef = useRef<Record<string, any>>({});
@@ -327,7 +324,7 @@ export default function App() {
     const unsub = onSnapshot(activeUsersQuery, (snapshot) => {
       activeDataRef.current = snapshot.docs.reduce((acc, doc) => { acc[doc.id] = doc.data(); return acc; }, {} as Record<string, any>);
       // Re-trigger staff list update by just referencing current staffList
-      setStaffList(prev => prev.map(s => { const data = activeDataRef.current[s.id]; return { ...s, isOnline: !!data, photoUrl: data?.photoUrl || s.photoUrl, description: data?.description || s.description, points: data?.points || 0 }; }));
+      setStaffList(prev => prev.map(s => { const data = activeDataRef.current[s.id]; return { ...s, isOnline: !!data, photoUrl: data?.photoUrl || s.photoUrl, description: data?.description || s.description, points: data?.points || 0, name: data?.name || s.name, role: data?.role || s.role, location: data?.location || s.location }; }));
     });
     return () => unsub();
   }, [user]);
@@ -752,10 +749,15 @@ export default function App() {
   };
 
   // --- Render ---
-  if (showSplash) return <LaunchAnimation onFinish={() => setShowSplash(false)} iconUrl={appSettings.iconUrl} />;
+  // Memoize onFinish to prevent LaunchAnimation from resetting its timer on every render
+  const handleSplashFinish = useCallback(() => {
+    setShowSplash(false);
+  }, []);
+
+  if (showSplash) return <LaunchAnimation onFinish={handleSplashFinish} iconUrl={appSettings.iconUrl} />;
 
   if (!loggedIn) {
-    const filteredLoginStaff = staffList.filter(s => s.name.includes(loginSearch) || s.role.includes(loginSearch));
+    const filteredLoginStaff = staffList.filter(s => (s.name || '').includes(loginSearch) || (s.role || '').includes(loginSearch));
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-blue-400 via-indigo-800 to-slate-900 p-4 relative overflow-hidden">
         <SpaceBackground />
