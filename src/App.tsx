@@ -215,6 +215,7 @@ export default function App() {
   const [shopItems, setShopItems] = useState(DEFAULT_SHOP_ITEMS);
   const [selectedCourierProfile, setSelectedCourierProfile] = useState<Courier | null>(null);
   const [showWritePostModal, setShowWritePostModal] = useState(false);
+  const [initialCourierName, setInitialCourierName] = useState("");
   const [posts, setPosts] = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
@@ -995,7 +996,7 @@ export default function App() {
       )}
 
       {showJournalModal && <CourierJournalModal isOpen={showJournalModal} onClose={() => setShowJournalModal(false)} onSave={handleSaveJournal} parcel={journalTargetParcel} />}
-      {showWritePostModal && <WritePostModal onClose={() => setShowWritePostModal(false)} onPost={handleCreatePost} couriers={couriers} authorName={name} />}
+      {showJournalModal && <CourierJournalModal isOpen={showJournalModal} onClose={() => setShowJournalModal(false)} onSave={handleSaveJournal} parcel={journalTargetParcel} />}
 
       {showShopModal && (
         <RocketShopModal
@@ -1006,7 +1007,7 @@ export default function App() {
           items={shopItems}
           onOpenBackpack={() => setShowBackpackModal(true)}
           isTeacher={mode === 'TEACHER'}
-          onGift={handleStartGift} // Pass start gift handler
+          onGift={handleStartGift}
         />
       )}
 
@@ -1016,6 +1017,19 @@ export default function App() {
           onClose={() => setShowGiftStudentModal(false)}
           couriers={couriers}
           onSelect={handleConfirmGift}
+        />
+      )}
+
+      {showWritePostModal && (
+        <WritePostModal
+          onClose={() => {
+            setShowWritePostModal(false);
+            setInitialCourierName(""); // Reset after close
+          }}
+          couriers={couriers}
+          onPost={handleCreatePost}
+          authorName={name}
+          initialCourierName={initialCourierName}
         />
       )}
 
@@ -1086,7 +1100,7 @@ export default function App() {
                     </p>
                   </div>
 
-                  <div><h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Truck size={16} className="text-indigo-600" /> 활동 중인 기사님</h3><div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">{couriers.map(courier => { const cStats = calculateCourierStats(courier.name); return (<div key={courier.id} className="min-w-[140px] bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center"><div className="relative mb-2"><img src={courier.photoUrl} className="w-12 h-12 rounded-full bg-slate-100 object-cover" alt={courier.name} /><div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white"></div><div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs ${cStats.level.color} border-2 border-white`}>{cStats.level.emoji}</div></div><p className="text-xs font-bold text-slate-800 flex items-center gap-1">{courier.name}</p><p className="text-[10px] text-slate-500 mt-1 text-center line-clamp-1 w-full px-1">"{String(courier.description || "안전 배송!")}"</p><div className="flex flex-wrap justify-center gap-1 mt-2 w-full">{courier.availableSlots.map(s => <span key={s} className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s}</span>)}</div></div>); })}</div></div>
+                  <div><h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Truck size={16} className="text-indigo-600" /> 활동 중인 기사님</h3><div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">{couriers.map(courier => { const cStats = calculateCourierStats(courier.name); return (<div key={courier.id} onClick={() => { setActiveTab('BOARD'); setInitialCourierName(courier.name); setShowWritePostModal(true); }} className="min-w-[140px] bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center cursor-pointer hover:bg-slate-50 transition-colors"><div className="relative mb-2"><img src={courier.photoUrl} className="w-12 h-12 rounded-full bg-slate-100 object-cover" alt={courier.name} /><div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white"></div><div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs ${cStats.level.color} border-2 border-white`}>{cStats.level.emoji}</div></div><p className="text-xs font-bold text-slate-800 flex items-center gap-1">{courier.name}</p><p className="text-[10px] text-slate-500 mt-1 text-center line-clamp-1 w-full px-1">"{String(courier.description || "안전 배송!")}"</p><div className="flex flex-wrap justify-center gap-1 mt-2 w-full">{courier.availableSlots.map(s => <span key={s} className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s}</span>)}</div></div>); })}</div></div>
                   <div id="my-parcel-list" className="scroll-mt-28"><h3 className="font-bold text-slate-800 mb-3">내 물품 목록</h3><div className="space-y-3">{myParcels.length === 0 ? <p className="text-xs text-center text-slate-400 py-4">도착한 택배가 없습니다.</p> : myParcels.map(parcel => (<div key={parcel.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100"><div className="flex justify-between items-start mb-2"><ParcelStatusBadge status={parcel.status} /><span className="text-[10px] text-slate-400">{parcel.arrivedAt}</span></div><h4 className="font-bold text-slate-900 mb-1">{parcel.itemName}</h4><p className="text-xs text-slate-500 mb-3">보낸사람: {parcel.sender} • 위치: {parcel.location}</p>{parcel.status === 'PENDING' && (<button onClick={() => handleRequestDelivery(parcel.id)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-3 rounded-xl transition-colors shadow-sm mb-2 animate-pulse-fast">🚀 바로 배송 신청하기</button>)}{parcel.status === 'WAITING' && <p className="text-xs text-center text-purple-600 bg-purple-50 py-2 rounded-lg font-bold">기사님 배정을 기다리고 있습니다...</p>}{parcel.status === 'DELIVERING' && <p className="text-xs text-center text-blue-600 bg-blue-50 py-2 rounded-lg font-bold">{parcel.courierName} 학생이 배송 중입니다! 🏃</p>}{parcel.status === 'COMPLETED' && (<div className="text-center p-2 bg-slate-50 rounded-lg text-[10px] text-slate-400">배송 완료되었습니다</div>)}</div>))}</div></div>
                 </>
               )}

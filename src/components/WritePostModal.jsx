@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { ThumbsUp } from 'lucide-react';
 
-export default function WritePostModal({ onClose, onPost, couriers, authorName }) {
-    const [selectedCourier, setSelectedCourier] = useState("");
+export default function WritePostModal({ onClose, onPost, couriers, authorName, initialCourierName }) {
+    const [selectedCourier, setSelectedCourier] = useState(initialCourierName || "");
     const [content, setContent] = useState("");
     const handleSubmit = () => { if (!selectedCourier) return alert("칭찬할 기사님을 선택해주세요."); if (!content.trim()) return alert("내용을 입력해주세요."); onPost(selectedCourier, content); };
     return (
