@@ -269,6 +269,10 @@ export default function App() {
   const [arrivalParcels, setArrivalParcels] = useState<Parcel[]>([]);
   const arrivalShownRef = useRef(false);
 
+  // [PWA 설치 유도용 State]
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+
   // New States for Teacher Gifting
   const [giftTargetItem, setGiftTargetItem] = useState<any>(null);
   const [showGiftStudentModal, setShowGiftStudentModal] = useState(false);
@@ -454,6 +458,56 @@ export default function App() {
       arrivalShownRef.current = true;
     }
   }, [loggedIn, allParcels, mode, name, staffList]);
+
+  // [PWA App Badge 설정 및 PWA 설치 이벤트 등록]
+  useEffect(() => {
+    // 1) beforeinstallprompt 잡기
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      // 선생님 로그인 상태이면 PWA 설치 제안 팝업 보여주기
+      if (loggedIn && mode === 'TEACHER') {
+        setShowInstallPrompt(true);
+      }
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // 2) App Badge 업데이트
+    if (loggedIn && mode === 'TEACHER') {
+      const currentStaff = staffList.find(s => s.name === name);
+      if (currentStaff) {
+        const pendingCount = allParcels.filter(p => p.receiverId === currentStaff.id && p.status === 'PENDING').length;
+        if ('setAppBadge' in navigator) {
+          try {
+            if (pendingCount > 0) {
+              (navigator as any).setAppBadge(pendingCount);
+            } else {
+              (navigator as any).clearAppBadge();
+            }
+          } catch (e) {
+            console.log("Badge API error", e);
+          }
+        }
+      }
+      
+      // 로그인 시점에 설치 권유
+      if (deferredPrompt) setShowInstallPrompt(true);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, [loggedIn, mode, allParcels, name, staffList, deferredPrompt]);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    setShowInstallPrompt(false);
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+    }
+  };
 
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const activeTeacher = useMemo(() => staffList.find(t => t.id === selectedTeacherId), [staffList, selectedTeacherId]);
@@ -1093,6 +1147,29 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* PWA 설치 유도 팝업 */}
+      {showInstallPrompt && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50" onClick={() => setShowInstallPrompt(false)}>
+          <div className="w-full max-w-sm bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 text-center relative overflow-hidden">
+              <div className="absolute -right-4 -top-4 w-20 h-20 bg-white/10 rounded-full" />
+              <div className="absolute -left-4 -bottom-4 w-16 h-16 bg-white/10 rounded-full" />
+              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center text-3xl shadow-lg mx-auto mb-3 relative z-10">🚀</div>
+              <h3 className="text-white font-black text-xl relative z-10">로켓톡 앱 설치하기</h3>
+              <p className="text-blue-100 text-sm mt-2 relative z-10">바탕화면에 아이콘을 추가하고<br/>1초 만에 로켓톡을 실행하세요!</p>
+            </div>
+            <div className="p-5 flex gap-2">
+              <button onClick={() => setShowInstallPrompt(false)} className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors">
+                다음에
+              </button>
+              <button onClick={handleInstallClick} className="flex-[2] py-3 rounded-xl bg-indigo-600 text-white font-bold text-sm shadow-md hover:bg-indigo-700 transition-colors">
+                바탕화면에 설치
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 택배 도착 알림 팝업 */}
       {showArrivalPopup && arrivalParcels.length > 0 && (
