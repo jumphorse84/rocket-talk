@@ -233,6 +233,9 @@ export default function App() {
   const [appSettings, setAppSettings] = useState<{ iconUrl?: string }>({});
   const [showLeaderboard, setShowLeaderboard] = useState(false); // Gamification Leaderboard
   const [hoveredCourier, setHoveredCourier] = useState<{ courier: any; stats: any; rect: DOMRect } | null>(null);
+  const [showArrivalPopup, setShowArrivalPopup] = useState(false);
+  const [arrivalParcels, setArrivalParcels] = useState<Parcel[]>([]);
+  const arrivalShownRef = useRef(false);
 
   // New States for Teacher Gifting
   const [giftTargetItem, setGiftTargetItem] = useState<any>(null);
@@ -404,6 +407,20 @@ export default function App() {
       if (mode === 'STUDENT') { const myProfile = couriers.find(c => c.name === name); if (myProfile) { setEditProfile({ desc: myProfile.description || "", slots: myProfile.availableSlots || [], photo: myProfile.photoUrl || "" }); } } else if (mode === 'TEACHER') { const me = staffList.find(s => s.name === name); if (me) { setEditProfile({ desc: me.description || "", slots: [], photo: me.photoUrl || "" }); } }
     }
   }, [activeTab, mode, couriers, name, hasChanges, staffList]);
+
+  // [택배 도착 알림] 로그인 직후 PENDING 파셀이 있으면 팝업 표시
+  useEffect(() => {
+    if (!loggedIn || mode !== 'TEACHER' || allParcels.length === 0) return;
+    if (arrivalShownRef.current) return;
+    const currentStaff = staffList.find(s => s.name === name);
+    if (!currentStaff) return;
+    const pending = allParcels.filter(p => p.receiverId === currentStaff.id && p.status === 'PENDING');
+    if (pending.length > 0) {
+      setArrivalParcels(pending);
+      setShowArrivalPopup(true);
+      arrivalShownRef.current = true;
+    }
+  }, [loggedIn, allParcels, mode, name, staffList]);
 
   const [selectedTeacherId, setSelectedTeacherId] = useState<string | null>(null);
   const activeTeacher = useMemo(() => staffList.find(t => t.id === selectedTeacherId), [staffList, selectedTeacherId]);
@@ -1043,6 +1060,73 @@ export default function App() {
           </div>
         );
       })()}
+
+      {/* 택배 도착 알림 팝업 */}
+      {showArrivalPopup && arrivalParcels.length > 0 && (
+        <div className="fixed inset-0 z-[9998] flex items-end justify-center pb-6 px-4" style={{ background: 'rgba(0,0,0,0.45)' }} onClick={() => setShowArrivalPopup(false)}>
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            {/* 헤더 */}
+            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 pt-6 pb-8 relative overflow-hidden">
+              <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full" />
+              <div className="absolute -right-8 top-8 w-16 h-16 bg-white/10 rounded-full" />
+              <button onClick={() => setShowArrivalPopup(false)} className="absolute top-4 right-4 text-white/70 hover:text-white"><X size={20} /></button>
+              <div className="flex items-center gap-3 relative z-10">
+                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-2xl">📦</div>
+                <div>
+                  <p className="text-white/80 text-xs font-medium">새 알림</p>
+                  <h2 className="text-white font-black text-lg">택배가 도착했어요!</h2>
+                </div>
+              </div>
+              <p className="text-white/70 text-xs mt-3 relative z-10">{arrivalParcels.length}건의 택배가 배송 신청을 기다리고 있습니다.</p>
+            </div>
+
+            {/* 택배 목록 */}
+            <div className="px-4 -mt-4">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 divide-y divide-slate-50 max-h-52 overflow-y-auto">
+                {arrivalParcels.map(parcel => (
+                  <div key={parcel.id} className="px-4 py-3 flex items-center gap-3">
+                    <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center shrink-0">
+                      <Package size={16} className="text-indigo-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{parcel.itemName}</p>
+                      <p className="text-[10px] text-slate-400">보낸사람: {parcel.sender} · {parcel.location}</p>
+                    </div>
+                    <span className="text-[10px] font-bold bg-amber-100 text-amber-600 px-2 py-0.5 rounded-full whitespace-nowrap">대기중</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 버튼 영역 */}
+            <div className="p-4 flex gap-2">
+              <button
+                onClick={() => setShowArrivalPopup(false)}
+                className="flex-1 py-3 rounded-2xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-colors"
+              >
+                나중에 확인
+              </button>
+              <button
+                onClick={async () => {
+                  setShowArrivalPopup(false);
+                  // 첫 번째 PENDING 파셀 배송 신청
+                  const first = arrivalParcels[0];
+                  if (first?.id) {
+                    try {
+                      await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'parcels', first.id), { status: 'WAITING' });
+                      setNotification({ msg: `📦 ${first.itemName} 배송 신청 완료!`, type: 'success' });
+                    } catch (e) { console.error(e); }
+                  }
+                }}
+                className="flex-2 flex-1 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-black text-sm shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all active:scale-95 flex items-center justify-center gap-2"
+              >
+                <Package size={16} /> 바로 배송 신청하기!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ImagePreviewModal isOpen={!!previewImage} onClose={() => setPreviewImage(null)} imageUrl={previewImage || ""} />
 
 
