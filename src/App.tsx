@@ -7,7 +7,8 @@ import {
   Image as ImageIcon, RotateCcw, ChevronDown, Calendar, Star, ThumbsUp, Quote,
   Save, Users, Trophy, Award, Crown, Zap, Layout, Heart, MessageSquare, Siren,
   ClipboardCheck, Building, ShoppingBag, Coins, Gift, Cloud, Ticket, Check,
-  Mail, MessageCircle as MessageIcon, MailOpen, Info, Backpack, History
+  Mail, MessageCircle as MessageIcon, MailOpen, Info, Backpack, History,
+  Rocket, Download
 } from "lucide-react";
 import CourierJournalModal from './components/CourierJournalModal';
 import CourierProofModal from './components/CourierProofModal';
@@ -1135,6 +1136,39 @@ export default function App() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-slate-100">
       {notificationComponent}
+
+      {/* [PWA 설치 팝업] */}
+      {showInstallPrompt && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="p-6 text-center">
+              <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <Rocket className="w-8 h-8 text-indigo-600" />
+              </div>
+              <h2 className="text-xl font-bold text-slate-800 mb-2">바탕화면에 로켓톡 설치 🚀</h2>
+              <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+                바탕화면이나 홈 화면에 로켓톡을 설치하면<br />새 택배가 올 때마다 <b>알림(빨간 점)</b>을<br />가장 빠르게 띄워드립니다!
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={handleInstallClick}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-2xl shadow-md shadow-indigo-200 transition-all transform hover:scale-[1.02] flex justify-center items-center gap-2"
+                >
+                  <Download size={18} />
+                  바로 설치하기
+                </button>
+                <button
+                  onClick={() => setShowInstallPrompt(false)}
+                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3.5 rounded-2xl transition-colors"
+                >
+                  나중에 하기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Courier Hover Popup - fixed position to escape overflow:auto clipping */}
       {hoveredCourier && (() => {
         const { courier, stats, rect } = hoveredCourier;
