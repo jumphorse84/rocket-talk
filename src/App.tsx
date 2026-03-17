@@ -460,21 +460,25 @@ export default function App() {
     }
   }, [loggedIn, allParcels, mode, name, staffList]);
 
-  // [PWA App Badge 설정 및 PWA 설치 이벤트 등록]
+  // [PWA 설치 이벤트 등록 (전역 유지)]
   useEffect(() => {
-    // 1) beforeinstallprompt 잡기
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // 선생님 로그인 상태이면 PWA 설치 제안 팝업 보여주기
-      if (loggedIn && mode === 'TEACHER') {
-        setShowInstallPrompt(true);
-      }
     };
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
 
-    // 2) App Badge 업데이트
+  // [PWA 팝업 노출 및 App Badge 설정 (로그인 상태 의존)]
+  useEffect(() => {
     if (loggedIn && mode === 'TEACHER') {
+      // 설치 프롬프트가 대기 중이면 팝업 띄우기
+      if (deferredPrompt) {
+        setShowInstallPrompt(true);
+      }
+
+      // App Badge 업데이트
       const currentStaff = staffList.find(s => s.name === name);
       if (currentStaff) {
         const pendingCount = allParcels.filter(p => p.receiverId === currentStaff.id && p.status === 'PENDING').length;
@@ -490,14 +494,7 @@ export default function App() {
           }
         }
       }
-      
-      // 로그인 시점에 설치 권유
-      if (deferredPrompt) setShowInstallPrompt(true);
     }
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-    };
   }, [loggedIn, mode, allParcels, name, staffList, deferredPrompt]);
 
   const handleInstallClick = async () => {
