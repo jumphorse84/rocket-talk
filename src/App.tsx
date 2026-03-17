@@ -232,6 +232,7 @@ export default function App() {
   const [showIconSettingsModal, setShowIconSettingsModal] = useState(false);
   const [appSettings, setAppSettings] = useState<{ iconUrl?: string }>({});
   const [showLeaderboard, setShowLeaderboard] = useState(false); // Gamification Leaderboard
+  const [hoveredCourier, setHoveredCourier] = useState<{ courier: any; stats: any; rect: DOMRect } | null>(null);
 
   // New States for Teacher Gifting
   const [giftTargetItem, setGiftTargetItem] = useState<any>(null);
@@ -1015,7 +1016,35 @@ export default function App() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-slate-100">
       {notificationComponent}
+      {/* Courier Hover Popup - fixed position to escape overflow:auto clipping */}
+      {hoveredCourier && (() => {
+        const { courier, stats, rect } = hoveredCourier;
+        const popupWidth = 192;
+        const left = Math.min(Math.max(rect.left + rect.width / 2 - popupWidth / 2, 8), window.innerWidth - popupWidth - 8);
+        return (
+          <div className="fixed z-[9999] w-48 bg-white rounded-2xl shadow-2xl border border-slate-100 p-3 pointer-events-none" style={{ left, top: rect.top - 8, transform: 'translateY(-100%)' }}>
+            <div className="flex flex-col items-center gap-2">
+              <img src={courier.photoUrl} className="w-16 h-16 rounded-full object-cover shadow-md border-2 border-white" alt={courier.name} />
+              <div className="text-center">
+                <p className="font-bold text-slate-800 text-sm">{courier.name} 기사님</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">{String(courier.description || '안전 배송!')}</p>
+              </div>
+              <div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-3 py-1.5 w-full justify-center">
+                <span className="text-base">{stats.level.emoji}</span>
+                <span className="text-xs font-bold text-slate-700">{stats.level.name}</span>
+                <span className="text-[10px] text-slate-400 ml-1">· {stats.deliveredCount}건</span>
+              </div>
+              {stats.avgRating > 0 && <div className="text-[10px] text-amber-500 font-bold">⭐ {stats.avgRating.toFixed(1)} / 5.0</div>}
+              <div className="flex flex-wrap justify-center gap-1 w-full">
+                {courier.availableSlots.map((s: string) => <span key={s} className="text-[9px] bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded-md font-medium">{s}</span>)}
+              </div>
+            </div>
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-r border-b border-slate-100 rotate-45" />
+          </div>
+        );
+      })()}
       <ImagePreviewModal isOpen={!!previewImage} onClose={() => setPreviewImage(null)} imageUrl={previewImage || ""} />
+
 
       <DeliveryChecklistModal isOpen={showChecklistModal} onClose={() => setShowChecklistModal(false)} onConfirm={handleChecklistConfirmed} parcel={checklistParcel} />
       <JournalViewModal isOpen={journalViewData.open} onClose={() => setJournalViewData({ ...journalViewData, open: false })} text={journalViewData.text} title={journalViewData.title} />
@@ -1152,7 +1181,7 @@ export default function App() {
                     </p>
                   </div>
 
-                  <div><h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Truck size={16} className="text-indigo-600" /> 활동 중인 기사님</h3><div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">{couriers.map(courier => { const cStats = calculateCourierStats(courier.name); return (<div key={courier.id} onClick={() => { setActiveTab('BOARD'); setInitialCourierName(courier.name); setShowWritePostModal(true); }} className="min-w-[140px] bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center cursor-pointer hover:bg-slate-50 transition-colors group relative"><div className="relative mb-2 mt-4"><img src={courier.photoUrl} className="w-12 h-12 rounded-full bg-slate-100 object-cover object-top shadow-md" alt={courier.name} /><div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white z-10"></div><div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs ${cStats.level.color} border-2 border-white z-10`}>{cStats.level.emoji}</div></div><p className="text-xs font-bold text-slate-800 flex items-center gap-1">{courier.name}</p><p className="text-[10px] text-slate-500 mt-1 text-center line-clamp-1 w-full px-1">"{String(courier.description || "안전 배송!")}"</p><div className="flex flex-wrap justify-center gap-1 mt-2 w-full">{courier.availableSlots.map(s => <span key={s} className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s}</span>)}</div>{/* Hover Popup */}<div className="pointer-events-none absolute bottom-[calc(100%+8px)] left-1/2 -translate-x-1/2 w-48 bg-white rounded-2xl shadow-2xl border border-slate-100 p-3 opacity-0 group-hover:opacity-100 transition-all duration-200 scale-95 group-hover:scale-100 z-50" onClick={e => e.stopPropagation()}><div className="flex flex-col items-center gap-2"><img src={courier.photoUrl} className="w-16 h-16 rounded-full object-cover shadow-md border-2 border-white" alt={courier.name} /><div className="text-center"><p className="font-bold text-slate-800 text-sm">{courier.name} 기사님</p><p className="text-[10px] text-slate-400 mt-0.5">{String(courier.description || "안전 배송!")}</p></div><div className="flex items-center gap-1.5 bg-slate-50 rounded-xl px-3 py-1.5 w-full justify-center"><span className="text-base">{cStats.level.emoji}</span><span className="text-xs font-bold text-slate-700">{cStats.level.name}</span><span className="text-[10px] text-slate-400 ml-1">· {cStats.deliveredCount}건</span></div>{cStats.avgRating > 0 && <div className="text-[10px] text-amber-500 font-bold">⭐ {cStats.avgRating.toFixed(1)} / 5.0</div>}<div className="flex flex-wrap justify-center gap-1 w-full">{courier.availableSlots.map(s => <span key={s} className="text-[9px] bg-indigo-50 text-indigo-500 px-1.5 py-0.5 rounded-md font-medium">{s}</span>)}</div></div><div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white border-r border-b border-slate-100 rotate-45"></div></div></div>); })}</div></div>
+                  <div><h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Truck size={16} className="text-indigo-600" /> 활동 중인 기사님</h3><div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">{couriers.map(courier => { const cStats = calculateCourierStats(courier.name); return (<div key={courier.id} onMouseEnter={e => setHoveredCourier({ courier, stats: cStats, rect: (e.currentTarget as HTMLElement).getBoundingClientRect() })} onMouseLeave={() => setHoveredCourier(null)} onClick={() => { setActiveTab('BOARD'); setInitialCourierName(courier.name); setShowWritePostModal(true); }} className="min-w-[140px] bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center cursor-pointer hover:bg-slate-50 transition-colors group relative"><div className="relative mb-2 mt-4"><img src={courier.photoUrl} className="w-12 h-12 rounded-full bg-slate-100 object-cover object-top shadow-md" alt={courier.name} /><div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white z-10"></div><div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs ${cStats.level.color} border-2 border-white z-10`}>{cStats.level.emoji}</div></div><p className="text-xs font-bold text-slate-800">{courier.name}</p><p className="text-[10px] text-slate-500 mt-1 text-center line-clamp-1 w-full px-1">"{String(courier.description || "안전 배송!")}"</p><div className="flex flex-wrap justify-center gap-1 mt-2 w-full">{courier.availableSlots.map(s => <span key={s} className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s}</span>)}</div></div>); })}</div></div>
                   <div id="my-parcel-list" className="scroll-mt-28"><h3 className="font-bold text-slate-800 mb-3">내 물품 목록</h3><div className="space-y-3">{myParcels.length === 0 ? <p className="text-xs text-center text-slate-400 py-4">도착한 택배가 없습니다.</p> : myParcels.map(parcel => (<div key={parcel.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100"><div className="flex justify-between items-start mb-2"><ParcelStatusBadge status={parcel.status} /><span className="text-[10px] text-slate-400">{parcel.arrivedAt}</span></div><h4 className="font-bold text-slate-900 mb-1">{parcel.itemName}</h4><p className="text-xs text-slate-500 mb-3">보낸사람: {parcel.sender} • 위치: {parcel.location}</p>{parcel.status === 'PENDING' && (<button onClick={() => handleRequestDelivery(parcel.id)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-3 rounded-xl transition-colors shadow-sm mb-2 animate-pulse-fast">🚀 바로 배송 신청하기</button>)}{parcel.status === 'WAITING' && <p className="text-xs text-center text-purple-600 bg-purple-50 py-2 rounded-lg font-bold">기사님 배정을 기다리고 있습니다...</p>}{parcel.status === 'DELIVERING' && <p className="text-xs text-center text-blue-600 bg-blue-50 py-2 rounded-lg font-bold">{parcel.courierName} 학생이 배송 중입니다! 🏃</p>}{parcel.status === 'COMPLETED' && (<div className="text-center p-2 bg-slate-50 rounded-lg text-[10px] text-slate-400">배송 완료되었습니다</div>)}</div>))}</div></div>
                 </>
               )}
