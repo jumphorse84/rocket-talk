@@ -1063,8 +1063,8 @@ export default function App() {
 
       {/* 택배 도착 알림 팝업 */}
       {showArrivalPopup && arrivalParcels.length > 0 && (
-        <div className="fixed inset-0 z-[9998] flex items-end justify-center pb-6 px-4" style={{ background: 'rgba(0,0,0,0.45)' }} onClick={() => setShowArrivalPopup(false)}>
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.45)' }} onClick={() => setShowArrivalPopup(false)}>
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             {/* 헤더 */}
             <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 pt-6 pb-8 relative overflow-hidden">
               <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full" />
