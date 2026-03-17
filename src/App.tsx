@@ -485,7 +485,7 @@ export default function App() {
       });
     });
     return channels;
-  }, [myParcels, mode, messages, currentUser]);
+  }, [myParcels, mode, messages, currentUser, couriers, staffList]);
 
   const unreadNoticeCount = useMemo(() => {
     if (mode !== 'TEACHER' || !currentUser?.id) return 0;
@@ -990,7 +990,7 @@ export default function App() {
                   </div>
                   <button onClick={() => { setSelectedTeacherId(null); setAdminFilter(null); }} className="text-slate-400 hover:text-indigo-600 transition-colors"><Home size={20} /></button>
                 </header>
-                <div className="flex-1 overflow-y-auto p-4 bg-[#b2c7d9]">{currentMessages.map(m => <MessageBubble key={m.id} message={m} isMe={m.senderType === 'ADMIN'} currentMode="ADMIN" />)}<div ref={chatEndRef}></div></div>
+                <div className="flex-1 overflow-y-auto p-4 bg-[#b2c7d9]">{currentMessages.map(m => <MessageBubble key={m.id} message={m} isMe={m.senderType === 'ADMIN'} currentMode="ADMIN" couriers={couriers} staffList={staffList} />)}<div ref={chatEndRef}></div></div>
                 <div className="bg-white p-3 flex gap-2 border-t border-slate-200"><input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendMessage(input)} className="flex-1 rounded-full px-4 py-2 text-sm bg-slate-100 outline-none" /><button onClick={() => handleSendMessage(input)} className="bg-[#fee500] rounded-full w-10 h-10 flex items-center justify-center"><Send size={18} /></button></div>
               </>
             ) : (
@@ -1151,7 +1151,7 @@ export default function App() {
                     </p>
                   </div>
 
-                  <div><h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Truck size={16} className="text-indigo-600" /> 활동 중인 기사님</h3><div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">{couriers.map(courier => { const cStats = calculateCourierStats(courier.name); return (<div key={courier.id} onClick={() => { setActiveTab('BOARD'); setInitialCourierName(courier.name); setShowWritePostModal(true); }} className="min-w-[140px] bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center cursor-pointer hover:bg-slate-50 transition-colors"><div className="relative mb-2"><img src={courier.photoUrl} className="w-12 h-12 rounded-full bg-slate-100 object-cover" alt={courier.name} /><div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white"></div><div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs ${cStats.level.color} border-2 border-white`}>{cStats.level.emoji}</div></div><p className="text-xs font-bold text-slate-800 flex items-center gap-1">{courier.name}</p><p className="text-[10px] text-slate-500 mt-1 text-center line-clamp-1 w-full px-1">"{String(courier.description || "안전 배송!")}"</p><div className="flex flex-wrap justify-center gap-1 mt-2 w-full">{courier.availableSlots.map(s => <span key={s} className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s}</span>)}</div></div>); })}</div></div>
+                  <div><h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Truck size={16} className="text-indigo-600" /> 활동 중인 기사님</h3><div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">{couriers.map(courier => { const cStats = calculateCourierStats(courier.name); return (<div key={courier.id} onClick={() => { setActiveTab('BOARD'); setInitialCourierName(courier.name); setShowWritePostModal(true); }} className="min-w-[140px] bg-white p-3 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center cursor-pointer hover:bg-slate-50 transition-colors group"><div className="relative mb-2 mt-4"><img src={courier.photoUrl} className="w-12 h-12 rounded-full bg-slate-100 object-cover object-top group-hover:scale-[2] group-hover:-translate-y-6 transition-transform duration-300 relative z-20 origin-bottom shadow-md" alt={courier.name} /><div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 rounded-full border-2 border-white z-30"></div><div className={`absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-white text-xs ${cStats.level.color} border-2 border-white z-30`}>{cStats.level.emoji}</div></div><p className="text-xs font-bold text-slate-800 flex items-center gap-1 relative z-30">{courier.name}</p><p className="text-[10px] text-slate-500 mt-1 text-center line-clamp-1 w-full px-1">"{String(courier.description || "안전 배송!")}"</p><div className="flex flex-wrap justify-center gap-1 mt-2 w-full">{courier.availableSlots.map(s => <span key={s} className="text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded whitespace-nowrap">{s}</span>)}</div></div>); })}</div></div>
                   <div id="my-parcel-list" className="scroll-mt-28"><h3 className="font-bold text-slate-800 mb-3">내 물품 목록</h3><div className="space-y-3">{myParcels.length === 0 ? <p className="text-xs text-center text-slate-400 py-4">도착한 택배가 없습니다.</p> : myParcels.map(parcel => (<div key={parcel.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100"><div className="flex justify-between items-start mb-2"><ParcelStatusBadge status={parcel.status} /><span className="text-[10px] text-slate-400">{parcel.arrivedAt}</span></div><h4 className="font-bold text-slate-900 mb-1">{parcel.itemName}</h4><p className="text-xs text-slate-500 mb-3">보낸사람: {parcel.sender} • 위치: {parcel.location}</p>{parcel.status === 'PENDING' && (<button onClick={() => handleRequestDelivery(parcel.id)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-3 rounded-xl transition-colors shadow-sm mb-2 animate-pulse-fast">🚀 바로 배송 신청하기</button>)}{parcel.status === 'WAITING' && <p className="text-xs text-center text-purple-600 bg-purple-50 py-2 rounded-lg font-bold">기사님 배정을 기다리고 있습니다...</p>}{parcel.status === 'DELIVERING' && <p className="text-xs text-center text-blue-600 bg-blue-50 py-2 rounded-lg font-bold">{parcel.courierName} 학생이 배송 중입니다! 🏃</p>}{parcel.status === 'COMPLETED' && (<div className="text-center p-2 bg-slate-50 rounded-lg text-[10px] text-slate-400">배송 완료되었습니다</div>)}</div>))}</div></div>
                 </>
               )}
@@ -1198,6 +1198,18 @@ export default function App() {
                   <div className="bg-white px-4 py-3 border-b border-slate-200 sticky top-0 z-10 flex justify-between items-center shadow-sm">
                     <div className="flex items-center gap-3">
                       <button onClick={() => setActiveChannelId(null)} className="p-1 hover:bg-slate-100 rounded-full text-slate-500"><ArrowLeft size={20} /></button>
+                      {(() => {
+                        const channel = chatChannels.find(c => c.id === activeChannelId);
+                        if (!channel) return null;
+                        if (channel.type === 'PUBLIC') return <div className="w-10 h-10 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0"><Users size={20} /></div>;
+                        if (channel.id === 'gift_box') return <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center shrink-0 text-xl overflow-hidden border border-rose-200">🎁</div>;
+                        
+                        const photoUrl = mode === 'TEACHER' 
+                          ? (couriers.find(c => c.name === channel.parcel?.courierName)?.photoUrl || channel.parcel?.courierPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${channel.parcel?.courierName || 'unknown'}`)
+                          : (staffList.find(s => s.name === channel.parcel?.receiver)?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${channel.parcel?.receiver || 'unknown'}`);
+                          
+                        return <div className="w-10 h-10 rounded-full shrink-0 bg-slate-100 border border-slate-200 overflow-hidden"><img src={photoUrl} className="w-full h-full object-cover" /></div>;
+                      })()}
                       <div>
                         <h3 className="font-bold text-slate-800 text-sm flex items-center gap-1">
                           {chatChannels.find(c => c.id === activeChannelId)?.name}
@@ -1209,7 +1221,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex-1 p-4 overflow-y-auto">
-                    {currentMessages.length === 0 ? (<div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2 opacity-50"><MessageIcon size={40} /><p className="text-xs">대화 내역이 없습니다.</p></div>) : (currentMessages.map(m => (<MessageBubble key={m.id} message={m} isMe={m.senderName === name} currentMode={mode} allParcels={allParcels} onRequestDelivery={handleRequestDelivery} onSubmitFeedback={handleSubmitFeedback} onOpenJournal={(text, title) => setJournalViewData({ open: true, text, title })} onWriteJournal={(parcel) => { setJournalTargetParcel(parcel); setShowJournalModal(true); }} />)))}
+                    {currentMessages.length === 0 ? (<div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2 opacity-50"><MessageIcon size={40} /><p className="text-xs">대화 내역이 없습니다.</p></div>) : (currentMessages.map(m => (<MessageBubble key={m.id} message={m} isMe={m.senderName === name} currentMode={mode} allParcels={allParcels} onRequestDelivery={handleRequestDelivery} onSubmitFeedback={handleSubmitFeedback} onOpenJournal={(text, title) => setJournalViewData({ open: true, text, title })} onWriteJournal={(parcel) => { setJournalTargetParcel(parcel); setShowJournalModal(true); }} couriers={couriers} staffList={staffList} />)))}
                     <div ref={chatEndRef}></div>
                   </div>
                   <div className="p-3 bg-white border-t border-slate-200 sticky bottom-0"> <div className="flex gap-2"> <input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendMessage(input)} className="flex-1 rounded-full px-4 py-3 text-sm bg-slate-100 outline-none border border-transparent focus:border-indigo-300 transition-colors" placeholder="메시지를 입력하세요..." /> <button onClick={() => handleSendMessage(input)} className="bg-[#fee500] hover:bg-yellow-400 text-slate-900 rounded-full w-12 h-12 flex items-center justify-center shadow-sm transition-transform active:scale-95"> <Send size={20} className="ml-0.5" /> </button> </div> </div>
@@ -1220,7 +1232,7 @@ export default function App() {
                   {chatChannels.filter(c => c.type !== 'PRIVATE').map((channel: any) => (
                     <div key={channel.id} onClick={() => setActiveChannelId(channel.id)} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 hover:bg-slate-50 transition-colors cursor-pointer active:scale-95 mb-3" >
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl shrink-0 ${channel.type === 'PUBLIC' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                        {channel.type === 'PUBLIC' ? <Users size={24} /> : (channel.parcel?.courierName ? <img src={channel.parcel.courierPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${channel.parcel.courierName}`} className="w-full h-full rounded-full object-cover" /> : <Package size={24} />)}
+                        {channel.type === 'PUBLIC' ? <Users size={24} /> : (channel.parcel?.courierName ? <img src={couriers.find(c => c.name === channel.parcel?.courierName)?.photoUrl || channel.parcel.courierPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${channel.parcel.courierName}`} className="w-full h-full rounded-full object-cover" /> : <Package size={24} />)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-center mb-0.5">
@@ -1237,10 +1249,10 @@ export default function App() {
                     const privateChannels = chatChannels.filter(c => c.type === 'PRIVATE') as any[];
 
                     if (mode === 'TEACHER') {
-                      // Group by Courier for Teachers
                       const groups: Record<string, typeof privateChannels> = {};
                       privateChannels.forEach(c => {
-                        const courierName = c.parcel?.courierName || 'Unknown';
+                        const rawCourierName = c.parcel?.courierName || 'Unknown';
+                        const courierName = rawCourierName.trim();
                         if (!groups[courierName]) groups[courierName] = [];
                         groups[courierName].push(c);
                       });
@@ -1256,15 +1268,24 @@ export default function App() {
                         const channels = groups[courierName];
                         const isExpanded = expandedCouriers[courierName] ?? false; // Default closed
                         const latestChannel = channels[0];
-                        const courierPhoto = latestChannel.parcel?.courierPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${courierName}`;
+                        const matchedCourier = couriers.find(c => (c.name || '').trim() === courierName);
+                        // matchedCourier의 photoUrl이 유효한지 꼼꼼히 체크. 빈 문자열이거나 유효하지 않으면 fallback
+                        let validPhotoUrl = matchedCourier?.photoUrl;
+                        if (!validPhotoUrl || validPhotoUrl.trim() === '') {
+                          validPhotoUrl = latestChannel.parcel?.courierPhoto;
+                        }
+                        if (!validPhotoUrl || validPhotoUrl.trim() === '') {
+                          validPhotoUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${courierName}`;
+                        }
+                        const courierPhoto = validPhotoUrl;
                         const activeCount = channels.filter(c => c.parcel?.status !== 'COMPLETED').length;
 
                         return (
-                          <div key={courierName} className="mb-3 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden transition-all">
+                          <div key={courierName} className="mb-3 bg-white rounded-2xl shadow-sm border border-slate-100 transition-all relative">
                             {/* Header */}
                             <div onClick={() => toggleCourierGroup(courierName)} className="p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors">
-                              <div className="w-12 h-12 rounded-full bg-slate-100 overflow-hidden border border-slate-200 shrink-0">
-                                <img src={courierPhoto} className="w-full h-full object-cover" />
+                              <div className="relative w-12 h-12 shrink-0 group/avatar">
+                                <img src={courierPhoto} className="w-12 h-12 rounded-full object-cover border border-slate-200 bg-slate-100 transition-all duration-300 origin-left group-hover/avatar:scale-[2.5] group-hover/avatar:z-50 relative group-hover/avatar:shadow-2xl" />
                               </div>
                               <div className="flex-1">
                                 <div className="flex justify-between items-center mb-1">
@@ -1285,8 +1306,8 @@ export default function App() {
                               <div className="bg-slate-50/50 border-t border-slate-100 animate-in slide-in-from-top-2 duration-200">
                                 {channels.map((channel: any) => (
                                   <div key={channel.id} onClick={() => setActiveChannelId(channel.id)} className="px-4 py-3 flex items-center gap-3 hover:bg-slate-100 transition-colors cursor-pointer border-b border-slate-100 last:border-none">
-                                    <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400 shrink-0">
-                                      {channel.parcel?.status === 'COMPLETED' ? <CheckCircle size={14} className="text-emerald-500" /> : <Truck size={14} className="text-indigo-500" />}
+                                    <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-400 shrink-0 overflow-hidden">
+                                      {channel.parcel?.status === 'COMPLETED' ? <CheckCircle size={14} className="text-emerald-500" /> : <img src={courierPhoto} alt="프로필" className="w-full h-full object-cover" />}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="flex justify-between items-center">
@@ -1310,7 +1331,7 @@ export default function App() {
                       return privateChannels.map((channel: any) => (
                         <div key={channel.id} onClick={() => setActiveChannelId(channel.id)} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4 hover:bg-slate-50 transition-colors cursor-pointer active:scale-95 mb-3" >
                           <div className={`w-12 h-12 rounded-full flex items-center justify-center text-xl shrink-0 ${channel.type === 'PUBLIC' ? 'bg-indigo-100 text-indigo-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                            {channel.parcel?.courierName ? <img src={channel.parcel.courierPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${channel.parcel.courierName}`} className="w-full h-full rounded-full object-cover" /> : <Package size={24} />}
+                            {channel.parcel?.receiver ? <img src={staffList.find(s => (s.name || '').trim() === (channel.parcel?.receiver || '').trim())?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${channel.parcel.receiver}`} className="w-full h-full rounded-full object-cover" /> : <Package size={24} />}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-center mb-0.5">

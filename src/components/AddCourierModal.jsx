@@ -6,7 +6,7 @@ export default function AddCourierModal({ onClose, onAdd, onEdit, initialData })
   const [name, setName] = useState(initialData?.name || "");
   const [description, setDescription] = useState(initialData?.description || "");
   const [selectedSlots, setSelectedSlots] = useState(initialData?.availableSlots || []);
-  const [photoUrl, setPhotoUrl] = useState(initialData?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.floor(Math.random() * 1000)}`);
+  const [photoUrl, setPhotoUrl] = useState(() => initialData?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.floor(Math.random() * 1000)}`);
   const fileInputRef = useRef(null);
 
   const toggleSlot = (slot) => setSelectedSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]);

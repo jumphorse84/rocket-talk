@@ -7,7 +7,7 @@ export default function AddStaffModal({ onClose, onAdd, onEdit, initialData }) {
     const [role, setRole] = useState(initialData?.role || "");
     const [description, setDescription] = useState(initialData?.description || "");
     const [location, setLocation] = useState(initialData?.location || STAFF_LOCATIONS[0]);
-    const [photoUrl, setPhotoUrl] = useState(initialData?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.floor(Math.random() * 1000)}`);
+    const [photoUrl, setPhotoUrl] = useState(() => initialData?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${Math.floor(Math.random() * 1000)}`);
     const fileInputRef = useRef(null);
 
     const handleFileChange = async (e) => {

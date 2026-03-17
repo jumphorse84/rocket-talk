@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { User, Package, MapPin, Sparkles, Smile, Check, X, ClipboardCheck } from 'lucide-react';
 
 export default function DeliveryChecklistModal({ isOpen, onClose, onConfirm, parcel }) {
+    const [checkedItems, setCheckedItems] = useState(new Array(5).fill(false));
+
     if (!isOpen || !parcel) return null;
 
     // Check items configuration
@@ -38,7 +40,6 @@ export default function DeliveryChecklistModal({ isOpen, onClose, onConfirm, par
         }
     ];
 
-    const [checkedItems, setCheckedItems] = useState(new Array(checks.length).fill(false));
     const allChecked = checkedItems.every(Boolean);
 
     const toggleCheck = (idx) => {

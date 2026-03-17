@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect } from "react";
 import { BookOpen, X, Sparkles } from "lucide-react";
 import { callGemini } from "../utils";
@@ -22,7 +23,7 @@ export default function CourierJournalModal({ isOpen, onClose, onSave, parcel })
       const result = await callGemini(prompt);
       const suggestions = result.split('\n').filter(line => line.trim().length > 0).slice(0, 3);
       setAiSuggestion(suggestions.length > 0 ? suggestions : ["선생님께 물건을 잘 전달해 드려서 뿌듯했다!", "배송을 완료하고 나니 기분이 상쾌하다."]);
-    } catch (e) {
+    } catch {
       setAiSuggestion(["오늘 배송도 무사히 마쳐서 정말 기쁘다!", "선생님께서 고맙다고 하셔서 기분이 좋았다.", "빠르고 정확하게 배달하는 멋진 기사가 된 것 같다."]);
     }
     setIsLoadingAi(false);

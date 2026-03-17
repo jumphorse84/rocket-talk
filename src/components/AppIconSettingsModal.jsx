@@ -4,7 +4,6 @@ import { compressImage } from "../utils";
 
 export default function AppIconSettingsModal({ isOpen, onClose, currentIcon, onSave }) {
     const [preview, setPreview] = useState(currentIcon);
-    const [selectedFile, setSelectedFile] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
     React.useEffect(() => {
@@ -17,7 +16,6 @@ export default function AppIconSettingsModal({ isOpen, onClose, currentIcon, onS
             try {
                 const compressed = await compressImage(e.target.files[0]);
                 setPreview(compressed);
-                setSelectedFile(compressed);
             } catch (error) {
                 console.error("Image processing failed", error);
                 alert("이미지 처리 중 오류가 발생했습니다.");

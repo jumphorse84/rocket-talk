@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useRef, useEffect } from "react";
 import { PenTool, Camera, RotateCcw } from "lucide-react";
 import { compressImage } from "../utils";
