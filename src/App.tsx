@@ -164,6 +164,38 @@ type Comment = {
   createdAt: any;
 };
 
+// --- Gamification Effects ---
+const fireBigConfetti = () => {
+  const duration = 2.5 * 1000;
+  const animationEnd = Date.now() + duration;
+  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 99999 };
+
+  const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+  const interval = setInterval(function () {
+    const timeLeft = animationEnd - Date.now();
+
+    if (timeLeft <= 0) {
+      return clearInterval(interval);
+    }
+
+    const particleCount = 50 * (timeLeft / duration);
+    // since particles fall down, start a bit higher than random
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+      colors: ['#4f46e5', '#10b981', '#f59e0b']
+    });
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+      colors: ['#ef4444', '#8b5cf6', '#3b82f6']
+    });
+  }, 250);
+};
+
 // ---- Components ----
 
 // ---- 메인 앱 ----
@@ -332,6 +364,7 @@ export default function App() {
             // 내 택배가 배송 완료되었을 때 선생님에게 알림
             if (mode === 'TEACHER' && parcelData.receiverId === currentUser?.id && parcelData.status === 'COMPLETED') {
               sendPushNotification(`✅ 택배 배송 완료!`, { body: `${parcelData.courierName} 기사님이 ${parcelData.itemName} 배송을 완료했습니다.` });
+              fireBigConfetti();
             }
           }
         });
