@@ -1125,6 +1125,8 @@ export default function App() {
     );
   }
 
+  const availableDeliveries = allParcels.filter(p => p.status === 'WAITING');
+  const myDeliveries = allParcels.filter(p => p.courierName === name && p.status === 'DELIVERING');
   const completedDeliveries = allParcels.filter(p => p.status === 'COMPLETED' && (mode === 'TEACHER' ? p.receiverId === currentUser?.id : p.courierName === name));
   const myProfile = couriers.find(c => c.name === name);
   const myStats = mode === 'STUDENT' ? calculateCourierStats(name) : null;
