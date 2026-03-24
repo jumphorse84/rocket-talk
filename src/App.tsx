@@ -601,7 +601,7 @@ export default function App() {
 
   const handleLogout = async () => { if (mode === 'TEACHER' && currentUser?.id && currentUser.id !== 'unknown') { try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_users', currentUser.id)); } catch (e) { } } clearLogin(); window.location.reload(); };
 
-  const handleRegisterParcel = async (teacherId: string, teacherName: string, location: string, item: string, qty: string, isUrgent: boolean, sender: string) => {
+  const handleRegisterParcel = async (teacherId: string, teacherName: string, location: string, item: string, qty: string, isUrgent: boolean, sender: string, image?: string | null) => {
     if (!user) {
       alert("로그인이 필요합니다.");
       return;
@@ -616,6 +616,7 @@ export default function App() {
         arrivedAt: new Date().toLocaleDateString("ko-KR", { month: "long", day: "numeric" }),
         status: "PENDING",
         location,
+        image: image || null,
         createdAt: serverTimestamp(),
         isUrgent // Ensure isUrgent is saved
       });
@@ -628,6 +629,7 @@ export default function App() {
         text: noticeText,
         kind: "NOTICE",
         parcelId: newParcelRef.id,
+        imageUrl: image || null,
         createdAt: serverTimestamp()
       });
 

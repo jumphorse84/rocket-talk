@@ -54,7 +54,64 @@ export default function MessageBubble({ message, isMe, onRequestDelivery, onSubm
         );
     }
 
-    if (message.kind === 'NOTICE') { const targetParcel = allParcels?.find(p => p.id === message.parcelId); const isRequested = targetParcel && targetParcel.status !== 'PENDING'; const isUrgent = targetParcel?.isUrgent; return (<div className="flex justify-center py-4 px-2 w-full"><div className={`bg-white border rounded-2xl p-0 shadow-lg max-w-[95%] w-full overflow-hidden ${isUrgent ? 'border-red-200' : 'border-indigo-100'}`}><div className={`${isUrgent ? 'bg-red-50 border-red-100' : 'bg-indigo-50 border-indigo-100'} px-4 py-3 border-b flex items-center justify-center`}><h3 className={`text-sm font-bold flex items-center gap-2 ${isUrgent ? 'text-red-700' : 'text-indigo-800'}`}><span className="text-base">{isUrgent ? '🚨' : '🔔'}</span> {isUrgent ? '긴급 배송 요청됨!' : '택배 도착 알림'}<span className="text-base">🚀</span></h3></div><div className="p-5 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap text-center">{typeof message.text === 'string' ? message.text : String(message.text || "")}</div>{message.parcelId && onRequestDelivery && (<div className="px-5 pb-5 space-y-2">{isRequested ? (<button disabled className={`flex items-center justify-center gap-2 w-full font-bold py-3 rounded-xl transition-all shadow-none cursor-not-allowed ${isUrgent ? 'bg-red-100 text-red-400' : 'bg-slate-100 text-slate-400'}`}>{isUrgent ? "🚨 긴급 배송 요청 완료" : "✅ 배송 신청이 완료되었습니다"}</button>) : (<div className="flex gap-2"><button onClick={() => onRequestDelivery(message.parcelId, false)} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-all shadow-md active:scale-95 text-xs flex flex-col items-center justify-center gap-1"><span>🚀 일반 배송</span><span className="text-[10px] font-normal opacity-80">순차적 배송</span></button><button onClick={() => onRequestDelivery(message.parcelId, true)} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-all shadow-md active:scale-95 text-xs flex flex-col items-center justify-center gap-1 animate-pulse hover:animate-none"><span>🚨 긴급 배송</span><span className="text-[10px] font-normal opacity-80">우선 처리 요청</span></button></div>)}</div>)}</div></div>); }
+    if (message.kind === 'NOTICE') { 
+        const targetParcel = allParcels?.find(p => p.id === message.parcelId); 
+        const isRequested = targetParcel && targetParcel.status !== 'PENDING'; 
+        const isUrgent = targetParcel?.isUrgent; 
+        const displayImage = message.imageUrl || targetParcel?.image;
+
+        return (
+            <div className="flex justify-center py-4 px-2 w-full">
+                <div className={`bg-white border rounded-3xl p-0 shadow-xl max-w-[95%] w-full overflow-hidden transition-all duration-300 ${isUrgent ? 'border-red-200 ring-4 ring-red-50' : 'border-indigo-100 ring-4 ring-indigo-50/50'}`}>
+                    <div className={`${isUrgent ? 'bg-gradient-to-r from-red-500 to-rose-600' : 'bg-gradient-to-r from-indigo-600 to-indigo-700'} px-4 py-3.5 flex items-center justify-center relative overflow-hidden`}>
+                        {isUrgent && <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 animate-pulse"></div>}
+                        <h3 className="text-sm font-bold flex items-center gap-2 text-white relative z-10">
+                            <span className="text-lg">{isUrgent ? '🚨' : '📦'}</span> 
+                            {isUrgent ? '긴급 배송 요청됨!' : '물품 도착 알림'}
+                        </h3>
+                    </div>
+                    
+                    {displayImage && (
+                      <div className="px-5 pt-5">
+                        <div className="relative rounded-2xl overflow-hidden shadow-md border border-slate-100 group">
+                          <img src={displayImage} className="w-full h-48 object-cover transition-transform duration-500 group-hover:scale-105" alt="Parcel" />
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-3">
+                            <p className="text-[10px] text-white/90 flex items-center gap-1">
+                              <Camera size={10} /> <span>등록된 물품 사진</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="p-5 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap text-center font-medium">
+                        {typeof message.text === 'string' ? message.text : String(message.text || "")}
+                    </div>
+
+                    {message.parcelId && onRequestDelivery && (
+                        <div className="px-5 pb-5 space-y-2.5">
+                            {isRequested ? (
+                                <button disabled className={`flex items-center justify-center gap-2 w-full font-bold py-3.5 rounded-2xl transition-all shadow-inner cursor-not-allowed ${isUrgent ? 'bg-red-50 text-red-300 border border-red-100' : 'bg-slate-50 text-slate-400 border border-slate-100'}`}>
+                                    {isUrgent ? "🚨 긴급 배송 요청 완료" : "✅ 배송 신청이 완료되었습니다"}
+                                </button>
+                            ) : (
+                                <div className="flex gap-3">
+                                    <button onClick={() => onRequestDelivery(message.parcelId, false)} className="flex-1 bg-white hover:bg-indigo-50 text-indigo-600 border-2 border-indigo-600 font-bold py-3.5 rounded-2xl transition-all shadow-sm active:scale-95 text-xs flex flex-col items-center justify-center gap-1 group">
+                                        <span className="group-hover:translate-y-[-1px] transition-transform">🚀 일반 배송 신청</span>
+                                        <span className="text-[9px] font-normal opacity-70">순차적 처리</span>
+                                    </button>
+                                    <button onClick={() => onRequestDelivery(message.parcelId, true)} className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3.5 rounded-2xl transition-all shadow-lg active:scale-95 text-xs flex flex-col items-center justify-center gap-1 animate-pulse hover:animate-none">
+                                        <span>🚨 긴급 배송 신청</span>
+                                        <span className="text-[9px] font-normal opacity-90">최우선 배송 요청</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        ); 
+    }
     if (message.senderType === "SYSTEM") { return (<div className="flex justify-center py-3 px-4"><div className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 shadow-sm"><div className="text-xs text-slate-500 font-medium text-center">{textContent}</div></div></div>); }
     if (message.kind === 'FEEDBACK') { return (<div className="flex justify-center py-6 px-2 w-full"><div className="relative w-full max-w-[90%] bg-white rounded-3xl shadow-xl border-2 border-amber-300 overflow-hidden transform hover:scale-105 transition-transform duration-300"><div className="h-3 bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300"></div><div className="p-6 text-center relative"><div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none"><div className="absolute top-2 left-2"><Sparkles size={24} /></div><div className="absolute bottom-2 right-2"><Sparkles size={24} /></div><div className="absolute top-10 right-10"><Star size={20} /></div></div><div className="inline-flex items-center justify-center p-3 bg-amber-100 rounded-full text-amber-600 mb-3 shadow-sm border border-amber-200"><Ticket size={24} /></div><h3 className="text-amber-600 font-black text-lg mb-1 tracking-tight">SPECIAL THANKS</h3><p className="text-xs text-slate-400 font-medium mb-4 uppercase tracking-widest">Delivery Completed</p><div className="flex justify-center gap-2 mb-4 animate-in zoom-in duration-500 delay-100">{[...Array(message.rating || 5)].map((_, i) => (<Star key={i} size={24} className="fill-amber-400 text-amber-400 drop-shadow-sm" />))}</div><div className="relative"><Quote size={20} className="absolute -top-3 -left-2 text-amber-200 fill-amber-200 transform -scale-x-100" /><p className="text-slate-700 font-bold text-sm leading-relaxed px-4 py-2">{message.text}</p><Quote size={20} className="absolute -bottom-3 -right-2 text-amber-200 fill-amber-200" /></div><div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400"><span>From. {message.senderName || "선생님"}</span><span className="flex items-center gap-1"><Gift size={10} /> + 포인트 지급됨</span></div></div><div className="absolute -bottom-2 -left-2 w-4 h-4 bg-slate-100 rounded-full"></div><div className="absolute -bottom-2 -right-2 w-4 h-4 bg-slate-100 rounded-full"></div></div></div>); }
     const renderAvatar = () => {
