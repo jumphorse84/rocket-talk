@@ -279,6 +279,9 @@ export default function App() {
   const [showGiftStudentModal, setShowGiftStudentModal] = useState(false);
   const [expandedCouriers, setExpandedCouriers] = useState<Record<string, boolean>>({});
 
+  const [attendance, setAttendance] = useState<any[]>([]);
+  const [showAttendanceSuccess, setShowAttendanceSuccess] = useState(false);
+
   const toggleCourierGroup = (courierName: string) => {
     setExpandedCouriers(prev => ({ ...prev, [courierName]: !prev[courierName] }));
   };
@@ -388,30 +391,29 @@ export default function App() {
       // Merge initial staff with custom staff
       setStaffList(prev => {
         const baseStaff = initialStaff.filter(s => !allCustomStaff.find(c => c.id === s.id));
-        const activeCustomStaff = allCustomStaff.filter(c => !c.deleted);
-        return [...baseStaff, ...activeCustomStaff].map(s => {
+        const activeCustomStaff = allCustomStaff.filter((c: any) => !c.deleted);
+        return [...baseStaff, ...activeCustomStaff].map((s: any) => {
           const data = activeDataRef.current?.[s.id];
-          return { ...s, isOnline: !!data, photoUrl: data?.photoUrl || (s as any).photoUrl, description: data?.description || (s as any).description, points: data?.points || 0, name: data?.name || s.name, role: data?.role || s.role, location: data?.location || s.location } as Staff;
+          return { ...s, isOnline: !!data, photoUrl: data?.photoUrl || s.photoUrl, description: data?.description || s.description, points: data?.points || 0, name: data?.name || s.name, role: data?.role || s.role, location: data?.location || s.location } as Staff;
         });
       });
     });
 
     const postsQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'posts'));
-    const unsubPosts = onSnapshot(postsQuery, (snapshot) => { const loadedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post)); loadedPosts.sort((a, b) => getSeconds(b.createdAt) - getSeconds(a.createdAt)); setPosts(loadedPosts); });
+    const unsubPosts = onSnapshot(postsQuery, (snapshot) => { const loadedPosts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Post)); loadedPosts.sort((a, b) => getSeconds(b.createdAt) - b.createdAt); setPosts(loadedPosts); });
     const commentsQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'comments'));
-    const unsubComments = onSnapshot(commentsQuery, (snapshot) => { const loadedComments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment)); loadedComments.sort((a, b) => getSeconds(a.createdAt) - getSeconds(b.createdAt)); setComments(loadedComments); });
+    const unsubComments = onSnapshot(commentsQuery, (snapshot) => { const loadedComments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Comment)); loadedComments.sort((a, b) => getSeconds(a.createdAt) - b.createdAt); setComments(loadedComments); });
     const shopDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'shop', 'list');
     const unsubShop = onSnapshot(shopDocRef, (snapshot) => { if (snapshot.exists() && snapshot.data().items) { setShopItems(snapshot.data().items); } else { setShopItems(DEFAULT_SHOP_ITEMS); } });
-
-    // [앱 설정 구독]
     const settingsRef = doc(db, 'artifacts', appId, 'public', 'data', 'app_settings', 'config');
-    const unsubSettings = onSnapshot(settingsRef, (snapshot) => {
-      if (snapshot.exists()) {
-        setAppSettings(snapshot.data());
-      }
+    const unsubSettings = onSnapshot(settingsRef, (snapshot) => { if (snapshot.exists()) { setAppSettings(snapshot.data()); } });
+    const attendanceQuery = query(collection(db, 'artifacts', appId, 'public', 'data', 'attendance'));
+    const unsubAttendance = onSnapshot(attendanceQuery, (snapshot) => {
+      const loadedAttendance = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setAttendance(loadedAttendance);
     });
 
-    return () => { unsubMsg(); unsubParcel(); unsubCourier(); unsubCustomStaff(); unsubPosts(); unsubComments(); unsubShop(); unsubSettings(); };
+    return () => { unsubMsg(); unsubParcel(); unsubCourier(); unsubCustomStaff(); unsubPosts(); unsubComments(); unsubShop(); unsubSettings(); unsubAttendance(); };
   }, [user]);
 
   const activeDataRef = useRef<Record<string, any>>({});
@@ -839,6 +841,31 @@ export default function App() {
   const handleLocalPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => { if (e.target.files?.[0]) { try { setNotification({ msg: "사진을 처리중입니다...", type: 'default' }); const compressed = await compressImage(e.target.files[0]); setEditProfile(prev => ({ ...prev, photo: compressed })); setHasChanges(true); setNotification({ msg: "사진이 선택되었습니다. 저장 버튼을 눌러주세요.", type: 'success' }); } catch (error) { console.error(error); alert("사진 처리 실패"); } } };
   const handleSaveProfile = async () => { if (!user) return; if (mode === 'STUDENT') { const myProfile = couriers.find(c => c.name === name); if (!myProfile) return; try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'couriers', myProfile.id), { description: editProfile.desc, availableSlots: editProfile.slots, photoUrl: editProfile.photo }); setNotification({ msg: "프로필이 성공적으로 저장되었습니다! ✨", type: 'success' }); setHasChanges(false); } catch (e) { console.error(e); alert("저장 실패"); } } else if (mode === 'TEACHER') { const me = staffList.find(s => s.name === name); if (!me) return; try { await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'active_users', me.id), { name: me.name, photoUrl: editProfile.photo, description: editProfile.desc, lastActive: serverTimestamp() }, { merge: true }); setNotification({ msg: "선생님 프로필이 저장되었습니다! 👩‍🏫", type: 'success' }); setHasChanges(false); } catch (e) { console.error(e); alert("저장 실패"); } } };
   const calculateCourierStats = (courierName: string) => { const deliveredCount = allParcels.filter(p => p.courierName === courierName && p.status === 'COMPLETED').length; let level = LEVEL_THRESHOLDS[0]; for (let i = LEVEL_THRESHOLDS.length - 1; i >= 0; i--) { if (deliveredCount >= LEVEL_THRESHOLDS[i].min) { level = LEVEL_THRESHOLDS[i]; break; } } const nextLevelIndex = LEVEL_THRESHOLDS.indexOf(level) + 1; const nextLevel = nextLevelIndex < LEVEL_THRESHOLDS.length ? LEVEL_THRESHOLDS[nextLevelIndex] : null; const progress = nextLevel ? ((deliveredCount - level.min) / (nextLevel.min - level.min)) * 100 : 100; const badges = []; if (deliveredCount >= 10) badges.push({ name: "성실왕", icon: Zap, color: "text-amber-500", bg: "bg-amber-100" }); const ratedParcels = allParcels.filter(p => p.courierName === courierName && p.rating); const avgRating = ratedParcels.length > 0 ? ratedParcels.reduce((acc, p) => acc + (p.rating || 0), 0) / ratedParcels.length : 0; if (avgRating >= 4.5 && ratedParcels.length >= 3) badges.push({ name: "친절왕", icon: Award, color: "text-rose-500", bg: "bg-rose-100" }); return { level, deliveredCount, nextLevel, progress, badges, avgRating }; };
+  const handleAttendance = async () => {
+    const myProfile = couriers.find(c => c.name === name);
+    if (!myProfile) return;
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+    const timeStr = now.toLocaleTimeString('ko-KR', { hour12: false });
+    const docId = `${myProfile.id}_${dateStr}`;
+
+    try {
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'attendance', docId), {
+        courierId: myProfile.id,
+        name: myProfile.name,
+        date: dateStr,
+        time: timeStr,
+        timestamp: serverTimestamp()
+      });
+      
+      fireBigConfetti();
+      setNotification({ msg: `🚀 ${myProfile.name} 기사님, 환영합니다! 출석 완료!`, type: 'success' });
+    } catch (e) {
+      console.error(e);
+      alert("출석 체크 실패");
+    }
+  };
+
   const handleCreatePost = async (courierName: string, content: string) => { if (!user) return; try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'posts'), { authorName: name, authorRole: mode, targetCourierName: courierName, content: content, likes: [], createdAt: serverTimestamp() }); setShowWritePostModal(false); setNotification({ msg: "칭찬 글이 등록되었습니다! 🎉", type: "success" }); } catch (e) { console.error(e); alert("등록 실패"); } };
   const handleLikePost = async (postId: string, currentLikes: string[]) => { if (!user || !currentUser?.id) return; const userId = currentUser.id; const newLikes = currentLikes.includes(userId) ? currentLikes.filter(id => id !== userId) : [...currentLikes, userId]; try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'posts', postId), { likes: newLikes }); } catch (e) { console.error(e); } };
   const handleAddComment = async (postId: string) => { if (!user || !newCommentText.trim()) return; try { await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'comments'), { postId, authorName: name, authorRole: mode, content: newCommentText, createdAt: serverTimestamp() }); setNewCommentText(""); } catch (e) { console.error(e); } };
@@ -868,7 +895,7 @@ export default function App() {
 
   const handleConfirmGift = async (courier: Courier) => {
     if (!user || !giftTargetItem || !currentUser?.id) return;
-    const currentPoints = currentUser.points || 0;
+    const currentPoints = (currentUser as any).points || 0;
 
     if (currentPoints < giftTargetItem.price) {
       alert("보유 포인트가 부족합니다.");
@@ -1059,12 +1086,12 @@ export default function App() {
 
         <ManageShopModal isOpen={showShopManageModal} onClose={() => setShowShopManageModal(false)} items={shopItems} onSave={handleUpdateShopItems} />
         <AppIconSettingsModal isOpen={showIconSettingsModal} onClose={() => setShowIconSettingsModal(false)} currentIcon={appSettings.iconUrl} onSave={handleUpdateAppIcon} />
-        <ConfirmModal isOpen={showDeleteConfirmModal} onClose={() => setShowDeleteConfirmModal(false)} onConfirm={performDeleteCourier} message="기사님을 삭제하시겠습니까?" />
-        <ConfirmModal isOpen={showDeleteStaffConfirmModal} onClose={() => setShowDeleteStaffConfirmModal(false)} onConfirm={performDeleteStaff} message="이 선생님 명단을 정말 삭제하시겠습니까?" />
+        <ConfirmModal isOpen={showDeleteConfirmModal} onClose={() => setShowDeleteConfirmModal(false)} onConfirm={performDeleteCourier} message="기사님을 삭제하시겠습니까?" subMessage="삭제 후에는 복구할 수 없습니다." />
+        <ConfirmModal isOpen={showDeleteStaffConfirmModal} onClose={() => setShowDeleteStaffConfirmModal(false)} onConfirm={performDeleteStaff} message="이 선생님 명단을 정말 삭제하시겠습니까?" subMessage="삭제 후에는 복구할 수 없습니다." />
         {showCourierModal && <AddCourierModal onClose={() => { setShowCourierModal(false); setCourierToEdit(null); }} onAdd={handleAddCourier} onEdit={handleEditCourier} initialData={courierToEdit} />}
         {showStaffEditModal && <AddStaffModal onClose={() => { setShowStaffEditModal(false); setStaffToEdit(null); }} onAdd={handleAddStaff} onEdit={handleEditStaff} initialData={staffToEdit} />}
         {showRegisterModal && <RegisterParcelModal onClose={() => setShowRegisterModal(false)} onRegister={handleRegisterParcel} staffList={staffList} />}
-        {showWritePostModal && <WritePostModal onClose={() => setShowWritePostModal(false)} onPost={handleCreatePost} couriers={couriers} authorName={name} />}
+        {showWritePostModal && <WritePostModal onClose={() => setShowWritePostModal(false)} onPost={handleCreatePost} couriers={couriers} authorName={name} initialCourierName={initialCourierName} />}
 
         <div className="flex h-[80vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-black/5 bg-[#b2c7d9] shadow-2xl">
           <aside className="flex w-72 flex-col border-r border-black/5 bg-white">
@@ -1100,7 +1127,7 @@ export default function App() {
                   </div>
                   <button onClick={() => { setSelectedTeacherId(null); setAdminFilter(null); }} className="text-slate-400 hover:text-indigo-600 transition-colors"><Home size={20} /></button>
                 </header>
-                <div className="flex-1 overflow-y-auto p-4 bg-[#b2c7d9]">{currentMessages.map(m => <MessageBubble key={m.id} message={m} isMe={m.senderType === 'ADMIN'} currentMode="ADMIN" couriers={couriers} staffList={staffList} />)}<div ref={chatEndRef}></div></div>
+                <div className="flex-1 overflow-y-auto p-4 bg-[#b2c7d9]">{currentMessages.map(m => (<MessageBubble key={m.id} message={m} isMe={m.senderType === 'ADMIN'} currentMode="ADMIN" allParcels={allParcels} onRequestDelivery={handleRequestDelivery} onSubmitFeedback={handleSubmitFeedback} onOpenJournal={(text: string, title: string) => setJournalViewData({ open: true, text, title })} onWriteJournal={(parcel: any) => { setJournalTargetParcel(parcel); setShowJournalModal(true); }} couriers={couriers} staffList={staffList} />))}<div ref={chatEndRef}></div></div>
                 <div className="bg-white p-3 flex gap-2 border-t border-slate-200"><input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendMessage(input)} className="flex-1 rounded-full px-4 py-2 text-sm bg-slate-100 outline-none" /><button onClick={() => handleSendMessage(input)} className="bg-[#fee500] rounded-full w-10 h-10 flex items-center justify-center"><Send size={18} /></button></div>
               </>
             ) : adminMainView === 'DASHBOARD' ? (
@@ -1287,7 +1314,7 @@ export default function App() {
         </div>
       )}
 
-      <ImagePreviewModal isOpen={!!previewImage} onClose={() => setPreviewImage(null)} imageUrl={previewImage || ""} />
+      <ImagePreviewModal isOpen={!!previewImage} onClose={() => setPreviewImage(null)} imageUrl={previewImage || ""} title="미리보기" />
 
 
       <DeliveryChecklistModal isOpen={showChecklistModal} onClose={() => setShowChecklistModal(false)} onConfirm={handleChecklistConfirmed} parcel={checklistParcel} />
@@ -1371,12 +1398,12 @@ export default function App() {
         isOpen={showCompletedHistoryModal}
         onClose={() => setShowCompletedHistoryModal(false)}
         parcels={completedDeliveries}
-        onShowImage={(url) => setPreviewImage(url)}
-        onWriteJournal={(parcel) => { setJournalTargetParcel(parcel); setShowJournalModal(true); }}
+        onShowImage={(url: string) => setPreviewImage(url)}
+        onWriteJournal={(parcel: any) => { setJournalTargetParcel(parcel); setShowJournalModal(true); }}
         onPrintReceipt={(parcel: Parcel) => {
           setReceiptFromHistory(true); // Flag to prevent journal modal from opening
           // Find the actual courier who delivered this parcel
-          const originalCourier = couriers.find(c => c.name === parcel.courierName);
+          const originalCourier = couriers.find(c => c.name === parcel.courierName) as any;
           setReceiptData({
             parcel: parcel,
             proofUrl: parcel.proofImage || "",
@@ -1413,7 +1440,7 @@ export default function App() {
                         <p className="text-xs font-bold opacity-90 mb-1">🎁 선생님 선물 상점</p>
                         <h3 className="font-bold text-lg flex items-center gap-2">
                           <Coins size={20} className="fill-yellow-300 text-yellow-300" />
-                          {currentUser?.points || 0} P
+                          {(currentUser as any)?.points || 0} P
                         </h3>
                       </div>
                       <div className="bg-white/20 p-3 rounded-full">
@@ -1444,6 +1471,84 @@ export default function App() {
                         <span className="text-xs font-medium">배달왕 랭킹</span>
                         <span className="text-sm font-bold bg-white/20 px-2 py-0.5 rounded-full mt-1 text-yellow-100">명예의 전당</span>
                       </button>
+                    </div>
+
+                    {/* [NEW] Attendance Section */}
+                    <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 mb-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                          <Calendar size={18} className="text-indigo-600" /> 오늘의 출석체크
+                        </h3>
+                        <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-full">{currentTime.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                      
+                      {(() => {
+                        const todayStr = currentTime.toISOString().split('T')[0];
+                        const myTodayAttendance = attendance.find(a => a.courierId === myProfile?.id && a.date === todayStr);
+                        
+                        if (myTodayAttendance) {
+                          return (
+                            <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex items-center justify-between animate-in fade-in zoom-in duration-300">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-xl shadow-sm">✅</div>
+                                <div>
+                                  <p className="text-sm font-bold text-emerald-700">출석 완료!</p>
+                                  <p className="text-[10px] text-emerald-600/70">오늘도 활기찬 하루 되세요!</p>
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs font-black text-emerald-600">{myTodayAttendance.time}</p>
+                                <p className="text-[9px] text-emerald-500 opacity-60">체크인 시간</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        
+                        return (
+                          <button 
+                            onClick={handleAttendance}
+                            className="w-full bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white font-bold py-4 rounded-2xl shadow-lg shadow-indigo-100 transition-all active:scale-95 flex items-center justify-center gap-2 relative overflow-hidden group"
+                          >
+                            <div className="absolute inset-0 bg-white/10 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                            <Sparkles size={18} className="animate-pulse" />
+                            <span>지금 출석하기</span>
+                          </button>
+                        );
+                      })()}
+
+                      {/* Mini Attendance History / Calendar Preview */}
+                      <div className="mt-5 pt-5 border-t border-slate-50">
+                        <div className="flex justify-between items-center mb-3 px-1">
+                          <p className="text-xs font-bold text-slate-700">이번 달 나의 기록</p>
+                          <p className="text-[10px] text-indigo-500 font-medium">{attendance.filter(a => a.courierId === myProfile?.id && a.date.startsWith(currentTime.toISOString().slice(0, 7))).length}일 출석</p>
+                        </div>
+                        <div className="grid grid-cols-7 gap-1">
+                          {(() => {
+                            const now = new Date();
+                            const year = now.getFullYear();
+                            const month = now.getMonth();
+                            const firstDay = new Date(year, month, 1).getDay();
+                            const daysInMonth = new Date(year, month + 1, 0).getDate();
+                            const today = now.getDate();
+                            const history = attendance.filter(a => a.courierId === myProfile?.id && a.date.startsWith(now.toISOString().slice(0, 7)));
+
+                            return [...Array(firstDay).fill(null), ...Array(daysInMonth).keys()].map((day, i) => {
+                              if (day === null) return <div key={`empty-${i}`} className="h-6"></div>;
+                              const currentDay = day + 1;
+                              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+                              const isAttended = history.some(a => a.date === dateStr);
+                              const isToday = currentDay === today;
+
+                              return (
+                                <div key={i} className={`h-8 rounded-lg flex items-center justify-center text-[10px] transition-all relative ${isAttended ? 'bg-indigo-500 text-white font-bold shadow-sm' : isToday ? 'bg-slate-100 text-slate-600 ring-1 ring-slate-200' : 'text-slate-300'}`}>
+                                  {isAttended ? '🚀' : currentDay}
+                                  {isToday && !isAttended && <div className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping"></div>}
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
+                      </div>
                     </div>
                   </section>
                   <section><h3 className="font-bold text-slate-800 mb-3 flex items-center gap-2"><Bell className="text-indigo-600" size={18} /> 배송 요청 ({availableDeliveries.length})</h3>{availableDeliveries.length === 0 ? <div className="text-center py-6 text-slate-400 text-xs bg-white rounded-2xl border border-slate-100">현재 대기 중인 배송이 없습니다.</div> : availableDeliveries.map(p => (<div key={p.id} className={`bg-white p-4 rounded-2xl shadow-sm border mb-3 ${p.isUrgent ? 'border-red-200 ring-2 ring-red-100' : 'border-slate-100'}`}><div className="flex justify-between mb-2"><span className={`text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1 ${p.isUrgent ? 'bg-red-100 text-red-600' : 'text-indigo-600 bg-indigo-50'}`}>{p.isUrgent && <Siren size={12} className="animate-pulse" />} {p.receiver} 선생님</span><span className="text-xs text-slate-400">{p.location}</span></div><p className="text-sm font-bold text-slate-800 mb-4">{p.itemName}</p><button onClick={() => handleAcceptDelivery(p.id)} className={`w-full text-white font-bold py-3 rounded-xl transition-all shadow-md active:scale-95 ${p.isUrgent ? 'bg-red-500 hover:bg-red-600' : 'bg-emerald-500 hover:bg-emerald-600'}`}>{p.isUrgent ? "🚨 긴급! 제가 갈게요! 🏃" : "제가 갈게요! 🙋‍♂️"}</button></div>))}</section>
@@ -1481,8 +1586,8 @@ export default function App() {
                         if (channel.id === 'gift_box') return <div className="w-10 h-10 rounded-full bg-rose-100 text-rose-500 flex items-center justify-center shrink-0 text-xl overflow-hidden border border-rose-200">🎁</div>;
                         
                         const photoUrl = mode === 'TEACHER' 
-                          ? (couriers.find(c => c.name === channel.parcel?.courierName)?.photoUrl || channel.parcel?.courierPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${channel.parcel?.courierName || 'unknown'}`)
-                          : (staffList.find(s => s.name === channel.parcel?.receiver)?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${channel.parcel?.receiver || 'unknown'}`);
+                          ? (couriers.find(c => c.name === (channel as any).parcel?.courierName)?.photoUrl || (channel as any).parcel?.courierPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${(channel as any).parcel?.courierName || 'unknown'}`)
+                          : (staffList.find(s => s.name === (channel as any).parcel?.receiver)?.photoUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${(channel as any).parcel?.receiver || 'unknown'}`);
                           
                         return <div className="w-10 h-10 rounded-full shrink-0 bg-slate-100 border border-slate-200 overflow-hidden"><img src={photoUrl} className="w-full h-full object-cover" /></div>;
                       })()}
@@ -1497,7 +1602,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="flex-1 p-4 overflow-y-auto">
-                    {currentMessages.length === 0 ? (<div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2 opacity-50"><MessageIcon size={40} /><p className="text-xs">대화 내역이 없습니다.</p></div>) : (currentMessages.map(m => (<MessageBubble key={m.id} message={m} isMe={m.senderName === name} currentMode={mode} allParcels={allParcels} onRequestDelivery={handleRequestDelivery} onSubmitFeedback={handleSubmitFeedback} onOpenJournal={(text, title) => setJournalViewData({ open: true, text, title })} onWriteJournal={(parcel) => { setJournalTargetParcel(parcel); setShowJournalModal(true); }} couriers={couriers} staffList={staffList} />)))}
+                    {currentMessages.length === 0 ? (<div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2 opacity-50"><MessageIcon size={40} /><p className="text-xs">대화 내역이 없습니다.</p></div>) : (currentMessages.map(m => (<MessageBubble key={m.id} message={m} isMe={m.senderName === name} currentMode={mode} allParcels={allParcels} onRequestDelivery={handleRequestDelivery} onSubmitFeedback={handleSubmitFeedback} onOpenJournal={(text: string, title: string) => setJournalViewData({ open: true, text, title })} onWriteJournal={(parcel: any) => { setJournalTargetParcel(parcel); setShowJournalModal(true); }} couriers={couriers} staffList={staffList} />)))}
                     <div ref={chatEndRef}></div>
                   </div>
                   <div className="p-3 bg-white border-t border-slate-200 sticky bottom-0"> <div className="flex gap-2"> <input value={input} onChange={e => setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSendMessage(input)} className="flex-1 rounded-full px-4 py-3 text-sm bg-slate-100 outline-none border border-transparent focus:border-indigo-300 transition-colors" placeholder="메시지를 입력하세요..." /> <button onClick={() => handleSendMessage(input)} className="bg-[#fee500] hover:bg-yellow-400 text-slate-900 rounded-full w-12 h-12 flex items-center justify-center shadow-sm transition-transform active:scale-95"> <Send size={20} className="ml-0.5" /> </button> </div> </div>
